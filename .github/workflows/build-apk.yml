@@ -1,11 +1,12 @@
-name: Build Android APK
+name: Build and Release Android APK
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch: # Allows manual trigger from GitHub Actions UI
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -37,9 +38,22 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+      - name: Rename APK for Easy Direct Download
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk GlipDriver.apk
+
+      - name: Upload to GitHub Releases (Direct .apk Download)
+        uses: softprops/action-gh-release@v2
         with:
-          name: Glip-Driver-Debug-APK
-          path: app/build/outputs/apk/debug/*.apk
-          retention-days: 14
+          tag_name: latest-build
+          name: "Glip Driver Latest APK (Direct Download)"
+          body: |
+            ### 🚗 Glip Driver — Android MVP Build
+            - Direct download link below (No Zip extraction needed!)
+            - Tap **GlipDriver.apk** on your mobile to download and install directly.
+            - Built automatically from latest commit on `main`.
+          files: GlipDriver.apk
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
