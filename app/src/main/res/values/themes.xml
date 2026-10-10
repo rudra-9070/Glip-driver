@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.GlipDriver" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/glip_navy_primary</item>
+        <item name="android:navigationBarColor">@color/glip_navy_primary</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

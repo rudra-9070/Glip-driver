@@ -1,0 +1,370 @@
+package com.glip.driver.ui.profile
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.glip.driver.domain.model.DriverProfile
+import com.glip.driver.domain.repository.DriverRepository
+import com.glip.driver.ui.components.GlipDemoBanner
+import com.glip.driver.ui.components.GlipSectionHeader
+import com.glip.driver.ui.theme.GlipAccentTeal
+import com.glip.driver.ui.theme.GlipErrorRed
+import com.glip.driver.ui.theme.GlipNavyPrimary
+import kotlinx.coroutines.launch
+
+@Composable
+fun ProfileScreen(
+    repository: DriverRepository,
+    onEditVehicle: () -> Unit,
+    onEditRoute: () -> Unit,
+    onNavigateToParcel: () -> Unit,
+    onNavigateToSchool: () -> Unit,
+    onLoggedOut: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val profile by repository.profileFlow.collectAsState(initial = null)
+    val vehicle by repository.vehicleFlow.collectAsState(initial = null)
+    val route by repository.routeFlow.collectAsState(initial = null)
+
+    var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showHelpDialog by remember { mutableStateOf(false) }
+    var showClearDataConfirm by remember { mutableStateOf(false) }
+
+    val coroutineScope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8FAFC))
+            .padding(16.dp)
+            .verticalScroll(scrollState)
+    ) {
+        // Driver Identity Header Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = GlipNavyPrimary)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1E293B)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Driver Avatar",
+                            tint = GlipAccentTeal,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column {
+                        Text(
+                            text = profile?.fullName ?: "Demo Driver",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        )
+                        Text(
+                            text = profile?.maskedMobile ?: "+91 98******10",
+                            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF94A3B8))
+                        )
+                        profile?.email?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Surface(
+                    color = Color(0xFF334155),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Driver Status: ${profile?.status?.label ?: "Demo Active"}",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFFCBD5E1),
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+        GlipDemoBanner()
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Vehicle & Route Management Options
+        GlipSectionHeader(title = "Configurations")
+
+        SettingsItemRow(
+            icon = Icons.Default.DirectionsCar,
+            title = "Vehicle Details",
+            subtitle = "${vehicle?.displayName} • ${vehicle?.totalCapacity} capacity",
+            onClick = onEditVehicle
+        )
+
+        SettingsItemRow(
+            icon = Icons.Default.Route,
+            title = "Corridor Route",
+            subtitle = "${route?.originName} → ${route?.destinationName}",
+            onClick = onEditRoute
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Future Services
+        GlipSectionHeader(title = "Future Offerings (Preview)")
+
+        SettingsItemRow(
+            icon = Icons.Default.LocalShipping,
+            title = "Parcel Delivery",
+            subtitle = "Coming soon — extra earnings on regular trips",
+            onClick = onNavigateToParcel
+        )
+
+        SettingsItemRow(
+            icon = Icons.Default.School,
+            title = "School Transportation",
+            subtitle = "Coming soon — dedicated route pooling for students",
+            onClick = onNavigateToSchool
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Information & Privacy
+        GlipSectionHeader(title = "Support & Legal")
+
+        SettingsItemRow(
+            icon = Icons.Default.HelpOutline,
+            title = "Help & Driver Support",
+            subtitle = "Platform FAQ, pooling etiquette & contact",
+            onClick = { showHelpDialog = true }
+        )
+
+        SettingsItemRow(
+            icon = Icons.Default.Security,
+            title = "Privacy & Regulatory Notice",
+            subtitle = "Data processing disclaimer for Indian mobility MVP",
+            onClick = { showPrivacyDialog = true }
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Account actions
+        OutlinedButton(
+            onClick = {
+                coroutineScope.launch {
+                    repository.logout()
+                    onLoggedOut()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Icon(Icons.Default.Logout, contentDescription = null, tint = GlipNavyPrimary)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Logout of Demo Session", color = GlipNavyPrimary)
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        TextButton(
+            onClick = { showClearDataConfirm = true },
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) {
+            Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = GlipErrorRed, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Reset & Clear All Demo Data", color = GlipErrorRed)
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = "Glip Driver v1.0.0-demo • Built with Jetpack Compose & M3",
+            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF94A3B8), fontSize = 11.sp),
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+    }
+
+    // Privacy Dialog
+    if (showPrivacyDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrivacyDialog = false },
+            title = { Text("Privacy & Regulatory Notice") },
+            text = {
+                Column {
+                    Text(
+                        "1. Local Demo MVP Scope: This application operates entirely on local device simulation. No live geolocation tracking, background monitoring, or payment processing occurs.\n\n" +
+                        "2. Driver Verification: Commercial carpooling, ride-sharing, or pooling in India is subject to state motor vehicle regulations, permits, and verification protocols. Live passenger onboarding requires verified commercial documentation.\n\n" +
+                        "3. Data Minimization: We collect only the demo profile name and mobile number locally. No SMS, contacts, or camera access is requested in this build.",
+                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp, color = Color(0xFF475569))
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrivacyDialog = false }) { Text("Acknowledge") }
+            }
+        )
+    }
+
+    // Help Dialog
+    if (showHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showHelpDialog = false },
+            title = { Text("Glip Driver Help & Support") },
+            text = {
+                Text(
+                    "How Route Pooling Works:\n\n" +
+                    "• Configure your planned journey corridor from Origin to Destination.\n" +
+                    "• Keep your availability set to 'Available'.\n" +
+                    "• Review matched co-passengers travelling along the same route.\n" +
+                    "• Accept requests within your available capacity to pool rides safely.\n\n" +
+                    "For assistance during the demo trial, contact support@glipgo.com",
+                    style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp, color = Color(0xFF475569))
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showHelpDialog = false }) { Text("Got It") }
+            }
+        )
+    }
+
+    // Clear Data Confirmation Dialog
+    if (showClearDataConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearDataConfirm = false },
+            title = { Text("Clear All Demo Data?") },
+            text = {
+                Text("This will wipe the current driver profile, reset vehicle seats, reseed route requests, and return to the welcome screen.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            repository.clearAllDemoData()
+                            showClearDataConfirm = false
+                            onLoggedOut()
+                        }
+                    }
+                ) {
+                    Text("Clear All Data", color = GlipErrorRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDataConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SettingsItemRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(imageVector = icon, contentDescription = null, tint = GlipNavyPrimary, modifier = Modifier.size(22.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B), fontSize = 11.sp)
+                    )
+                }
+            }
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF94A3B8))
+        }
+    }
+}
