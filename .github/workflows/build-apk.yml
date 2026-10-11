@@ -22,36 +22,43 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Gradle
+      - name: Install and Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4'
 
-      - name: Generate Gradle Wrapper if missing
+      - name: Generate Gradle Wrapper
         run: |
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper --gradle-version 8.4
-          fi
+          gradle wrapper --gradle-version 8.4
           chmod +x gradlew
 
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --stacktrace
 
-      - name: Rename APK for Easy Direct Download
+      - name: Prepare APK for Direct Download
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk GlipDriver.apk
+          cp app/build/outputs/apk/debug/*.apk GlipDriver.apk
 
-      - name: Upload to GitHub Releases (Direct .apk Download)
-        uses: softprops/action-gh-release@v2
+      - name: Upload APK to Artifacts (Backup Download)
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: latest-build
-          name: "Glip Driver Latest APK (Direct Download)"
+          name: GlipDriver-Direct-APK
+          path: GlipDriver.apk
+          retention-days: 14
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        if: success()
+        with:
+          tag_name: v1.0.0-demo
+          name: "Glip Driver Demo APK (Direct Download)"
           body: |
-            ### 🚗 Glip Driver — Android MVP Build
-            - Direct download link below (No Zip extraction needed!)
-            - Tap **GlipDriver.apk** on your mobile to download and install directly.
-            - Built automatically from latest commit on `main`.
+            ### 🚗 Glip Driver — Android MVP
+            - **Direct APK Download**: Tap `GlipDriver.apk` below on your mobile to download directly (No zip extraction needed).
+            - Built with Jetpack Compose & Material 3.
           files: GlipDriver.apk
           prerelease: false
           make_latest: true
