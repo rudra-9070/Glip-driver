@@ -11,11 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -122,7 +123,7 @@ fun WelcomeScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     ValuePropItem(
-                        icon = Icons.Default.Shield,
+                        icon = Icons.Default.Lock,
                         title = "Full Driver Control",
                         desc = "Accept or decline corridor matches based on your available capacity."
                     )
