@@ -16,9 +16,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Directions
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -153,7 +152,7 @@ fun RouteSetupScreen(
             onValueChange = { departureTime = it },
             label = { Text("Approximate Departure Time") },
             placeholder = { Text("e.g. 08:30 AM") },
-            leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, tint = GlipNavyPrimary) },
+            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null, tint = GlipNavyPrimary) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )

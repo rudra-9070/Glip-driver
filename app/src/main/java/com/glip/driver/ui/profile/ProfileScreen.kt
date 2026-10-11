@@ -18,17 +18,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Route
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -171,7 +169,7 @@ fun ProfileScreen(
         )
 
         SettingsItemRow(
-            icon = Icons.Default.Route,
+            icon = Icons.Default.Place,
             title = "Corridor Route",
             subtitle = "${route?.originName} → ${route?.destinationName}",
             onClick = onEditRoute
@@ -183,14 +181,14 @@ fun ProfileScreen(
         GlipSectionHeader(title = "Future Offerings (Preview)")
 
         SettingsItemRow(
-            icon = Icons.Default.LocalShipping,
+            icon = Icons.Default.DirectionsCar,
             title = "Parcel Delivery",
             subtitle = "Coming soon — extra earnings on regular trips",
             onClick = onNavigateToParcel
         )
 
         SettingsItemRow(
-            icon = Icons.Default.School,
+            icon = Icons.Default.Star,
             title = "School Transportation",
             subtitle = "Coming soon — dedicated route pooling for students",
             onClick = onNavigateToSchool
@@ -202,14 +200,14 @@ fun ProfileScreen(
         GlipSectionHeader(title = "Support & Legal")
 
         SettingsItemRow(
-            icon = Icons.Default.HelpOutline,
+            icon = Icons.Default.Info,
             title = "Help & Driver Support",
             subtitle = "Platform FAQ, pooling etiquette & contact",
             onClick = { showHelpDialog = true }
         )
 
         SettingsItemRow(
-            icon = Icons.Default.Security,
+            icon = Icons.Default.Lock,
             title = "Privacy & Regulatory Notice",
             subtitle = "Data processing disclaimer for Indian mobility MVP",
             onClick = { showPrivacyDialog = true }
@@ -228,7 +226,7 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp)
         ) {
-            Icon(Icons.Default.Logout, contentDescription = null, tint = GlipNavyPrimary)
+            Icon(Icons.Default.ExitToApp, contentDescription = null, tint = GlipNavyPrimary)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Logout of Demo Session", color = GlipNavyPrimary)
         }
@@ -239,7 +237,7 @@ fun ProfileScreen(
             onClick = { showClearDataConfirm = true },
             modifier = Modifier.align(Alignment.CenterHorizontally)
         ) {
-            Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = GlipErrorRed, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.Delete, contentDescription = null, tint = GlipErrorRed, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(6.dp))
             Text("Reset & Clear All Demo Data", color = GlipErrorRed)
         }
@@ -364,7 +362,7 @@ private fun SettingsItemRow(
                     )
                 }
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF94A3B8))
+            Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color(0xFF94A3B8))
         }
     }
 }

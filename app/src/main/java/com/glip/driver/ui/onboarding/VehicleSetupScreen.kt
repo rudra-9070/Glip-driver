@@ -19,7 +19,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -323,7 +322,7 @@ private fun CounterAdjuster(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDecrement) {
-                    Icon(Icons.Default.Remove, contentDescription = "Decrement", tint = GlipNavyPrimary)
+                    Text("−", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = GlipNavyPrimary))
                 }
                 Text(
                     text = "$value",

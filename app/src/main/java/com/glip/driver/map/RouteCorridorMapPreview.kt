@@ -14,9 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -69,7 +67,7 @@ fun RouteCorridorMapPreview(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.Navigation,
+                        imageVector = Icons.Default.LocationOn,
                         contentDescription = "Corridor",
                         tint = GlipAccentTeal,
                         modifier = Modifier.size(18.dp)
