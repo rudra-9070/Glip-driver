@@ -39,25 +39,40 @@ jobs:
 
       - name: Build Debug APK
         run: |
+          set -o pipefail
           ./gradlew assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
 
       - name: Show Detailed Error if Build Failed
-        if: failure()
+        if: always()
         run: |
-          echo "==== ERROR SUMMARY ===="
-          grep -iE "e: |error:|exception:" -B 2 -A 8 build.log || true
-          echo "==== LAST 80 LINES OF BUILD LOG ===="
-          tail -n 80 build.log
+          if [ -f build.log ]; then
+            echo "==== ERROR SUMMARY ===="
+            grep -iE "e: |error:|exception:" -B 2 -A 8 build.log || true
+            echo "==== LAST 80 LINES OF BUILD LOG ===="
+            tail -n 80 build.log
+          fi
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 7
 
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest --continue || true
 
       - name: Prepare APK for Direct Download
         run: |
-          APK_PATH=$(find app/build/outputs/apk -type f -name "*.apk" | head -n 1)
+          echo "Searching for generated APK files..."
+          find app/build -type f -name "*.apk" || true
+          APK_PATH=$(find app/build/outputs/apk -type f -name "*.apk" 2>/dev/null | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "ERROR: No APK found in app/build/outputs/apk"
-            find app/build -type f -name "*.apk"
+            APK_PATH=$(find app/build -type f -name "*.apk" | head -n 1)
+          fi
+          if [ -z "$APK_PATH" ]; then
+            echo "ERROR: No APK found anywhere in app/build"
             exit 1
           fi
           echo "Found APK at: $APK_PATH"
