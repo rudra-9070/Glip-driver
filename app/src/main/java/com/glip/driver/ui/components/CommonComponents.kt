@@ -214,6 +214,5 @@ fun GlipSectionHeader(
                     .clickable { onActionClick() }
             )
         }
-        }
     }
 }

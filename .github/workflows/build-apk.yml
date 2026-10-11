@@ -38,7 +38,16 @@ jobs:
           chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: |
+          ./gradlew assembleDebug --stacktrace --no-daemon 2>&1 | tee build.log
+
+      - name: Show Detailed Error if Build Failed
+        if: failure()
+        run: |
+          echo "==== ERROR SUMMARY ===="
+          grep -iE "e: |error:|exception:" -B 2 -A 8 build.log || true
+          echo "==== LAST 80 LINES OF BUILD LOG ===="
+          tail -n 80 build.log
 
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest --continue || true
