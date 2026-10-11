@@ -22,27 +22,22 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install and Setup Gradle
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.4'
 
-      - name: Generate Gradle Wrapper
-        run: |
-          gradle wrapper --gradle-version 8.4
-          chmod +x gradlew
-
       - name: Run Unit Tests
-        run: ./gradlew testDebugUnitTest
+        run: gradle testDebugUnitTest
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
 
       - name: Prepare APK for Direct Download
         run: |
           cp app/build/outputs/apk/debug/*.apk GlipDriver.apk
 
-      - name: Upload APK to Artifacts (Backup Download)
+      - name: Upload APK to Artifacts (Direct File)
         uses: actions/upload-artifact@v4
         with:
           name: GlipDriver-Direct-APK
