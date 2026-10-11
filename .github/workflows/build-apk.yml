@@ -60,6 +60,17 @@ jobs:
           path: build.log
           retention-days: 7
 
+      - name: Push build log on failure
+        if: failure()
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git checkout -B build-debug-log
+          cp build.log error.log
+          git add error.log
+          git commit -m "Debug log" || true
+          git push -u origin build-debug-log --force || true
+
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest --continue || true
 
