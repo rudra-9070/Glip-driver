@@ -1,6 +1,7 @@
 package com.glip.driver.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -210,9 +211,9 @@ fun GlipSectionHeader(
                 ),
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
-                    .padding(4.dp)
-                    .androidx.compose.foundation.clickable { onActionClick() }
+                    .clickable { onActionClick() }
             )
+        }
         }
     }
 }
