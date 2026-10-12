@@ -223,60 +223,31 @@ fun HomeScreen(
             }
         }
 
-        // 3. Live Native OpenStreetMap View with overlays
-        Box(
+        // 3. Live Native OpenStreetMap View Container (Clipped & nicely styled)
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            NativeOsmMapView(
-                initialLat = 26.1739,
-                initialLng = 85.1818,
-                modifier = Modifier.fillMaxSize()
-            )
-
-            // Bottom overlay: "4 active vehicle" & "Show List"
-            Surface(
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter),
-                color = Color.White.copy(alpha = 0.95f),
-                tonalElevation = 4.dp
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp))
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF10B981))
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "4 active vehicle",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF334155)
-                            )
-                        )
-                    }
-
-                    Text(
-                        text = "Show List",
-                        color = Color(0xFFF59E0B),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        modifier = Modifier.clickable { onViewAllRequests() }
-                    )
-                }
+                NativeOsmMapView(
+                    initialLat = 26.1739,
+                    initialLng = 85.1818,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         }
+
+        Spacer(modifier = Modifier.height(6.dp))
     }
 }
 
@@ -304,7 +275,7 @@ fun NativeOsmMapView(
             factory = { context ->
                 val prefs = context.getSharedPreferences("glip_osmdroid_prefs", Context.MODE_PRIVATE)
                 Configuration.getInstance().load(context, prefs)
-                Configuration.getInstance().userAgentValue = "GlipDriver/1.0"
+                Configuration.getInstance().userAgentValue = context.packageName
 
                 MapView(context).apply {
                     setTileSource(TileSourceFactory.MAPNIK)
@@ -329,24 +300,24 @@ fun NativeOsmMapView(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Floating Recenter / GPS Target Button (top-right of map)
+        // Floating Recenter / GPS Target Button (top-right inside map container)
         FloatingActionButton(
             onClick = {
                 mapViewRef?.controller?.animateTo(GeoPoint(initialLat, initialLng))
             },
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 16.dp, end = 16.dp)
-                .size(44.dp),
+                .padding(top = 12.dp, end = 12.dp)
+                .size(42.dp),
             containerColor = Color.White,
             shape = CircleShape,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.MyLocation,
                 contentDescription = "Recenter Map",
                 tint = Color(0xFF0284C7),
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
     }
