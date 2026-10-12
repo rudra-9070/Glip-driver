@@ -191,6 +191,22 @@ fun CrashScreenContent(
             }
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Quick Top Restart Action
+        Button(
+            onClick = onRestart,
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.Black)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Restart Glip Driver", color = Color.Black, fontWeight = FontWeight.Bold)
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // Exception summary Card
