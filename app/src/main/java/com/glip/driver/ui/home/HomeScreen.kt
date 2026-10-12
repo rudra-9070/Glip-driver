@@ -174,17 +174,19 @@ fun HomeScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = GlipNavyPrimary
                         ),
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
                         contentDescription = "to",
                         tint = Color(0xFF94A3B8),
                         modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     // Red destination dot
                     Box(
@@ -200,7 +202,9 @@ fun HomeScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = GlipNavyPrimary
                         ),
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
                 }
 
@@ -224,9 +228,6 @@ fun HomeScreen(
                 .weight(1f)
         ) {
             OpenStreetMapLeafletView(
-                initialLat = 26.1739, // Motipur region
-                initialLng = 85.1818,
-                zoomLevel = 14,
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -278,74 +279,9 @@ fun HomeScreen(
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun OpenStreetMapLeafletView(
-    initialLat: Double,
-    initialLng: Double,
-    zoomLevel: Int,
     modifier: Modifier = Modifier
 ) {
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
-
-    val leafletHtml = remember(initialLat, initialLng, zoomLevel) {
-        """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-            <style>
-                html, body, #map {
-                    margin: 0;
-                    padding: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: #f1f5f9;
-                }
-                .leaflet-control-attribution {
-                    font-size: 8px !important;
-                    background: rgba(255, 255, 255, 0.75) !important;
-                    padding: 2px 4px !important;
-                }
-                .blue-pin {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-            </style>
-        </head>
-        <body>
-            <div id="map"></div>
-            <script>
-                var lat = $initialLat;
-                var lng = $initialLng;
-                var map = L.map('map', {
-                    zoomControl: false,
-                    attributionControl: true
-                }).setView([lat, lng], $zoomLevel);
-
-                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '&copy; OpenStreetMap contributors'
-                }).addTo(map);
-
-                // Blue pin SVG marker in the center
-                var blueIcon = L.divIcon({
-                    className: 'blue-pin',
-                    html: '<svg width="32" height="40" viewBox="0 0 24 24"><path fill="#0284C7" stroke="#FFFFFF" stroke-width="1.2" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>',
-                    iconSize: [32, 40],
-                    iconAnchor: [16, 40]
-                });
-                var marker = L.marker([lat, lng], { icon: blueIcon }).addTo(map);
-
-                function recenterMap() {
-                    map.setView([lat, lng], $zoomLevel);
-                }
-            </script>
-        </body>
-        </html>
-        """.trimIndent()
-    }
 
     Box(modifier = modifier) {
         AndroidView(
@@ -353,16 +289,14 @@ fun OpenStreetMapLeafletView(
                 WebView(context).apply {
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
+                    settings.databaseEnabled = true
+                    settings.allowFileAccess = true
+                    settings.allowContentAccess = true
                     settings.loadWithOverviewMode = true
                     settings.useWideViewPort = true
+                    settings.userAgentString = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 GlipDriver/1.0"
                     webViewClient = WebViewClient()
-                    loadDataWithBaseURL(
-                        "https://www.openstreetmap.org",
-                        leafletHtml,
-                        "text/html",
-                        "UTF-8",
-                        null
-                    )
+                    loadUrl("file:///android_asset/map.html")
                     webViewRef = this
                 }
             },
@@ -372,7 +306,7 @@ fun OpenStreetMapLeafletView(
         // Floating Recenter / GPS Target Button (top-right of map)
         FloatingActionButton(
             onClick = {
-                webViewRef?.evaluateJavascript("recenterMap();", null)
+                webViewRef?.evaluateJavascript("window.recenter();", null)
             },
             modifier = Modifier
                 .align(Alignment.TopEnd)

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Glip Map</title>
+    <link rel="stylesheet" href="leaflet/leaflet.css" />
+    <script src="leaflet/leaflet.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #f1f5f9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #f1f5f9;
+        }
+        .leaflet-control-attribution {
+            font-size: 8px !important;
+            background: rgba(255, 255, 255, 0.8) !important;
+            padding: 2px 6px !important;
+            border-radius: 4px;
+        }
+        .pin-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pin-pulse {
+            position: absolute;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(2, 132, 199, 0.25);
+            animation: pulse 2s infinite ease-out;
+            pointer-events: none;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.6); opacity: 1; }
+            100% { transform: scale(1.6); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        var currentLat = 26.1739; // Motipur, Bihar
+        var currentLng = 85.1818;
+        var currentZoom = 14;
+
+        var map = L.map('map', {
+            zoomControl: false,
+            attributionControl: true
+        }).setView([currentLat, currentLng], currentZoom);
+
+        // OpenStreetMap tiles with multiple tile hosts for reliability
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Blue location pin SVG with pulse animation
+        var pinIcon = L.divIcon({
+            className: 'pin-wrapper',
+            html: '<div class="pin-pulse"></div><svg width="34" height="42" viewBox="0 0 24 24"><path fill="#0284C7" stroke="#FFFFFF" stroke-width="1.4" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>',
+            iconSize: [34, 42],
+            iconAnchor: [17, 42]
+        });
+
+        var mainMarker = L.marker([currentLat, currentLng], { icon: pinIcon }).addTo(map);
+
+        window.recenter = function(lat, lng, zoom) {
+            var targetLat = lat || currentLat;
+            var targetLng = lng || currentLng;
+            var targetZoom = zoom || currentZoom;
+            map.setView([targetLat, targetLng], targetZoom);
+            mainMarker.setLatLng([targetLat, targetLng]);
+        };
+
+        window.setCoordinates = function(lat, lng) {
+            currentLat = lat;
+            currentLng = lng;
+            window.recenter(lat, lng, currentZoom);
+        };
+    </script>
+</body>
+</html>
