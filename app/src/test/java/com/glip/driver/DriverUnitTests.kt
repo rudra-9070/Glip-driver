@@ -147,4 +147,14 @@ class DriverUnitTests {
         assertFalse(InputValidationUtil.validateRoute("A", "Noida").isValid)
         assertFalse(InputValidationUtil.validateRoute("Noida", "Noida").isValid)
     }
+
+    @Test
+    fun testCrashReportCreation() {
+        val testEx = IllegalArgumentException("Test exception message")
+        val report = com.glip.driver.util.CrashManager.createReport(testEx)
+        assertEquals("IllegalArgumentException", report.errorType)
+        assertEquals("Test exception message", report.errorMessage)
+        assertTrue(report.stackTrace.contains("IllegalArgumentException"))
+        assertTrue(report.deviceInfo.isNotEmpty())
+    }
 }

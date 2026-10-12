@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
@@ -61,6 +62,7 @@ fun HomeScreen(
     onEditVehicle: () -> Unit,
     onEditRoute: () -> Unit,
     onViewAllRequests: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val profile by repository.profileFlow.collectAsState(initial = null)
@@ -87,7 +89,7 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Welcome, ${profile?.fullName ?: "Driver"}",
                     style = MaterialTheme.typography.titleLarge.copy(
@@ -100,18 +102,31 @@ fun HomeScreen(
                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
                 )
             }
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFE2E8F0)
-            ) {
-                Text(
-                    text = "DEMO",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = GlipNavyPrimary
-                    ),
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onNavigateToDiagnostics,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.BugReport,
+                        contentDescription = "Diagnostics & Error Logs",
+                        tint = GlipNavyPrimary
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFE2E8F0)
+                ) {
+                    Text(
+                        text = "DEMO",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = GlipNavyPrimary
+                        ),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
         }
 

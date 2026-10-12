@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.ExitToApp
@@ -67,6 +68,7 @@ fun ProfileScreen(
     onEditRoute: () -> Unit,
     onNavigateToParcel: () -> Unit,
     onNavigateToSchool: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit,
     onLoggedOut: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -204,6 +206,13 @@ fun ProfileScreen(
             title = "Help & Driver Support",
             subtitle = "Platform FAQ, pooling etiquette & contact",
             onClick = { showHelpDialog = true }
+        )
+
+        SettingsItemRow(
+            icon = Icons.Default.BugReport,
+            title = "Diagnostics & Error Logs",
+            subtitle = "View crash logs, device environment & error monitor",
+            onClick = onNavigateToDiagnostics
         )
 
         SettingsItemRow(

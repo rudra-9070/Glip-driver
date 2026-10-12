@@ -35,6 +35,7 @@ import com.glip.driver.ui.activity.ActivityScreen
 import com.glip.driver.ui.auth.LoginScreen
 import com.glip.driver.ui.auth.RegisterScreen
 import com.glip.driver.ui.auth.WelcomeScreen
+import com.glip.driver.ui.diagnostics.DiagnosticsScreen
 import com.glip.driver.ui.home.HomeScreen
 import com.glip.driver.ui.onboarding.RouteSetupScreen
 import com.glip.driver.ui.onboarding.VehicleSetupScreen
@@ -134,7 +135,8 @@ fun GlipDriverNavHost(
             composable(Screen.Welcome.route) {
                 WelcomeScreen(
                     onNavigateToRegister = { navController.navigate(Screen.Register.route) },
-                    onNavigateToLogin = { navController.navigate(Screen.Login.route) }
+                    onNavigateToLogin = { navController.navigate(Screen.Login.route) },
+                    onNavigateToDiagnostics = { navController.navigate(Screen.Diagnostics.route) }
                 )
             }
             composable(Screen.Register.route) {
@@ -194,7 +196,8 @@ fun GlipDriverNavHost(
                     repository = repository,
                     onEditVehicle = { navController.navigate(Screen.VehicleSetup.route) },
                     onEditRoute = { navController.navigate(Screen.RouteSetup.route) },
-                    onViewAllRequests = { navController.navigate(Screen.Requests.route) }
+                    onViewAllRequests = { navController.navigate(Screen.Requests.route) },
+                    onNavigateToDiagnostics = { navController.navigate(Screen.Diagnostics.route) }
                 )
             }
             composable(Screen.Requests.route) {
@@ -210,11 +213,19 @@ fun GlipDriverNavHost(
                     onEditRoute = { navController.navigate(Screen.RouteSetup.route) },
                     onNavigateToParcel = { navController.navigate(Screen.ParcelService.route) },
                     onNavigateToSchool = { navController.navigate(Screen.SchoolService.route) },
+                    onNavigateToDiagnostics = { navController.navigate(Screen.Diagnostics.route) },
                     onLoggedOut = {
                         navController.navigate(Screen.Welcome.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
+                )
+            }
+
+            // Diagnostics & Error Logs Screen
+            composable(Screen.Diagnostics.route) {
+                DiagnosticsScreen(
+                    onBack = { navController.popBackStack() }
                 )
             }
 

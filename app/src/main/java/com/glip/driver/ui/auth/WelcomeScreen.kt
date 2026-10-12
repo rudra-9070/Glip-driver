@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Card
@@ -25,6 +26,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +48,7 @@ import com.glip.driver.ui.theme.GlipNavyPrimary
 fun WelcomeScreen(
     onNavigateToRegister: () -> Unit,
     onNavigateToLogin: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -66,7 +69,7 @@ fun WelcomeScreen(
 
             // App Identity Brand Graphic
             Image(
-                painter = painterResource(id = R.mipmap.ic_launcher),
+                painter = painterResource(id = R.drawable.ic_glip_logo),
                 contentDescription = "Glip Logo",
                 modifier = Modifier
                     .size(96.dp)
@@ -137,7 +140,16 @@ fun WelcomeScreen(
                 text = "I Already Have a Demo Account",
                 onClick = onNavigateToLogin
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+            TextButton(
+                onClick = onNavigateToDiagnostics,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Icon(Icons.Default.BugReport, contentDescription = null, tint = Color(0xFF64748B), modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Diagnostics & Error Logs", color = Color(0xFF64748B), fontSize = 12.sp)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
