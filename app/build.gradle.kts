@@ -20,8 +20,18 @@ android {
         }
     }
 
+    signingConfigs {
+        create("fixedDebug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         debug {
+            signingConfig = signingConfigs.getByName("fixedDebug")
             applicationIdSuffix = ".debug"
             isDebuggable = true
             buildConfigField("boolean", "SHOW_DEMO_OTP", "true")
