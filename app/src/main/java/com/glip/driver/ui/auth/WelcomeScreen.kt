@@ -1,8 +1,11 @@
 package com.glip.driver.ui.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.res.painterResource
+import com.glip.driver.R
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -62,20 +65,13 @@ fun WelcomeScreen(
             Spacer(modifier = Modifier.height(40.dp))
 
             // App Identity Brand Graphic
-            Box(
+            Image(
+                painter = painterResource(id = R.mipmap.ic_launcher),
+                contentDescription = "Glip Logo",
                 modifier = Modifier
-                    .size(90.dp)
-                    .clip(CircleShape)
-                    .background(GlipNavyPrimary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.DirectionsCar,
-                    contentDescription = "Glip Driver Logo",
-                    tint = GlipAccentTeal,
-                    modifier = Modifier.size(52.dp)
-                )
-            }
+                    .size(96.dp)
+                    .clip(RoundedCornerShape(22.dp))
+            )
 
             Spacer(modifier = Modifier.height(20.dp))
 

@@ -1,26 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Outer Steering Wheel Ring -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#06B6D4"
-        android:strokeWidth="5"
-        android:pathData="M 22,54 a 32,32 0 1,0 64,0 a 32,32 0 1,0 -64,0 Z" />
-    <!-- Inner Hub -->
-    <path
-        android:fillColor="#10B981"
-        android:pathData="M 46,54 a 8,8 0 1,0 16,0 a 8,8 0 1,0 -16,0 Z" />
-    <!-- Steering Spokes -->
-    <path
-        android:strokeColor="#06B6D4"
-        android:strokeWidth="4"
-        android:strokeLineCap="round"
-        android:pathData="M54,54 L54,78 M46,54 L28,62 M62,54 L80,62" />
-    <!-- Route Waypoint Pin / Arrow above hub -->
-    <path
-        android:fillColor="#10B981"
-        android:pathData="M54,26 L59,35 L49,35 Z" />
+    <group
+        android:scaleX="0.75"
+        android:scaleY="0.75"
+        android:translateX="13.5"
+        android:translateY="13.5">
+        <path
+            android:fillColor="#00000000"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="7"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M24,78 C24,42 84,66 84,30" />
+        <path
+            android:fillColor="#FF6D00"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2.5"
+            android:pathData="M24,78m-7,0a7,7 0 1,0 14,0a7,7 0 1,0 -14,0" />
+        <path
+            android:fillColor="#FFD600"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2.5"
+            android:pathData="M84,18 C78.5,18 74,22.5 74,28 C74,36 84,46 84,46 C84,46 94,36 94,28 C94,22.5 89.5,18 84,18 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M84,28m-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -6,0" />
+    </group>
 </vector>
