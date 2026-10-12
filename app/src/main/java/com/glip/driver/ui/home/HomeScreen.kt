@@ -1,8 +1,6 @@
 package com.glip.driver.ui.home
 
-import android.annotation.SuppressLint
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,11 +25,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,12 +40,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.glip.driver.data.repository.DemoDriverRepositoryImpl
-import com.glip.driver.ui.theme.GlipAccentTeal
 import com.glip.driver.ui.theme.GlipNavyPrimary
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
 
 @Composable
 fun HomeScreen(
@@ -58,12 +62,10 @@ fun HomeScreen(
     onNavigateToDiagnostics: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val route by repository.profileFlow.collectAsState(initial = null)
     val driverRoute by repository.routeFlow.collectAsState(initial = null)
-    val requests by repository.requestsFlow.collectAsState(initial = emptyList())
 
     val origin = driverRoute?.originName ?: "Motipur"
-    val destination = driverRoute?.destinationName ?: "ba"
+    val destination = driverRoute?.destinationName ?: "Baruraj"
 
     Column(
         modifier = modifier
@@ -139,7 +141,7 @@ fun HomeScreen(
             }
         }
 
-        // 2. Route Bar: Motipur -> ba | Change
+        // 2. Route Bar: Motipur -> Baruraj | Change
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -175,7 +177,7 @@ fun HomeScreen(
                             color = GlipNavyPrimary
                         ),
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
 
@@ -203,7 +205,7 @@ fun HomeScreen(
                             color = GlipNavyPrimary
                         ),
                         maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
                 }
@@ -221,13 +223,15 @@ fun HomeScreen(
             }
         }
 
-        // 3. Live OpenStreetMap Map Container with overlays
+        // 3. Live Native OpenStreetMap View with overlays
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
         ) {
-            OpenStreetMapLeafletView(
+            NativeOsmMapView(
+                initialLat = 26.1739,
+                initialLng = 85.1818,
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -276,28 +280,50 @@ fun HomeScreen(
     }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
+/**
+ * 100% Native OpenStreetMap View powered by osmdroid SDK.
+ * Bypasses all WebView/CORS/JavaScript sandbox limitations.
+ * Provides 60fps pinch-to-zoom, pan gestures, and native tile downloading with caching.
+ */
 @Composable
-fun OpenStreetMapLeafletView(
+fun NativeOsmMapView(
+    initialLat: Double = 26.1739,
+    initialLng: Double = 85.1818,
     modifier: Modifier = Modifier
 ) {
-    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    var mapViewRef by remember { mutableStateOf<MapView?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            mapViewRef?.onDetach()
+        }
+    }
 
     Box(modifier = modifier) {
         AndroidView(
             factory = { context ->
-                WebView(context).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.databaseEnabled = true
-                    settings.allowFileAccess = true
-                    settings.allowContentAccess = true
-                    settings.loadWithOverviewMode = true
-                    settings.useWideViewPort = true
-                    settings.userAgentString = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 GlipDriver/1.0"
-                    webViewClient = WebViewClient()
-                    loadUrl("file:///android_asset/map.html")
-                    webViewRef = this
+                val prefs = context.getSharedPreferences("glip_osmdroid_prefs", Context.MODE_PRIVATE)
+                Configuration.getInstance().load(context, prefs)
+                Configuration.getInstance().userAgentValue = "GlipDriver/1.0"
+
+                MapView(context).apply {
+                    setTileSource(TileSourceFactory.MAPNIK)
+                    setMultiTouchControls(true)
+                    isTilesScaledToDpi = true
+                    zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+
+                    val targetPoint = GeoPoint(initialLat, initialLng)
+                    controller.setZoom(15.0)
+                    controller.setCenter(targetPoint)
+
+                    val locationMarker = Marker(this).apply {
+                        position = targetPoint
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                        title = "Current Location"
+                    }
+                    overlays.add(locationMarker)
+
+                    mapViewRef = this
                 }
             },
             modifier = Modifier.fillMaxSize()
@@ -306,7 +332,7 @@ fun OpenStreetMapLeafletView(
         // Floating Recenter / GPS Target Button (top-right of map)
         FloatingActionButton(
             onClick = {
-                webViewRef?.evaluateJavascript("window.recenter();", null)
+                mapViewRef?.controller?.animateTo(GeoPoint(initialLat, initialLng))
             },
             modifier = Modifier
                 .align(Alignment.TopEnd)

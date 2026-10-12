@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.coroutines.core)
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

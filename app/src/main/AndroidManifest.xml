@@ -4,6 +4,7 @@
     <!-- MVP requires NO intrusive permissions (no SMS, background location, contacts, camera) -->
     <!-- Internet only needed for future network calls / remote map tiles if used -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name=".GlipDriverApplication"
