@@ -90,7 +90,7 @@ fun HomeScreen(
                 Surface(
                     onClick = {
                         coroutineScope.launch {
-                            repository.setDriverAvailable(!isAvailable)
+                            repository.setAvailable(!isAvailable)
                         }
                     },
                     shape = RoundedCornerShape(20.dp),
