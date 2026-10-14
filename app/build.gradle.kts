@@ -9,10 +9,10 @@ android {
 
     defaultConfig {
         applicationId = "com.glip.driver"
-        minSdk = 26
+        minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0-demo"
+        versionCode = 2
+        versionName = "1.0.1-demo"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -26,6 +26,8 @@ android {
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
+            enableV1Signing = true
+            enableV2Signing = true
         }
     }
 
@@ -37,12 +39,13 @@ android {
             buildConfigField("boolean", "SHOW_DEMO_OTP", "true")
         }
         release {
+            signingConfig = signingConfigs.getByName("fixedDebug")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("boolean", "SHOW_DEMO_OTP", "false")
+            buildConfigField("boolean", "SHOW_DEMO_OTP", "true")
         }
     }
     compileOptions {
