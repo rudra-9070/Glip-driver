@@ -9,19 +9,12 @@ import android.graphics.Path
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,6 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,38 +71,40 @@ fun resolveCorridorPoints(route: DriverRoute?): ResolvedCorridor {
     val originName = route?.originName ?: "Motipur"
     val destName = route?.destinationName ?: "Baruraj"
 
-    // Check if route has explicit non-zero coordinates
-    if (route != null && (route.originLat != 0.0 || route.destLat != 0.0)) {
-        val oPoint = GeoPoint(route.originLat, route.originLng)
-        val dPoint = GeoPoint(route.destLat, route.destLng)
-        val waypoints = route.intermediateStops.sortedBy { it.orderIndex }.map {
-            Pair(GeoPoint(it.latitude, it.longitude), it.name)
-        }
-        val allPoints = mutableListOf<GeoPoint>().apply {
-            add(oPoint)
-            addAll(waypoints.map { it.first })
-            add(dPoint)
-        }
-        return ResolvedCorridor(oPoint, originName, dPoint, destName, waypoints, allPoints)
+    val (oLat, oLng) = RouteCoordinateResolver.resolveCoordinates(
+        originName,
+        route?.originLat ?: 26.1739,
+        route?.originLng ?: 85.1818
+    )
+    val (dLat, dLng) = RouteCoordinateResolver.resolveCoordinates(
+        destName,
+        route?.destLat ?: 26.1465,
+        route?.destLng ?: 85.0782
+    )
+
+    val oPoint = GeoPoint(oLat, oLng)
+    val dPoint = GeoPoint(dLat, dLng)
+
+    // Intermediate stops if explicitly configured
+    val waypoints = route?.intermediateStops?.sortedBy { it.orderIndex }?.map {
+        Pair(GeoPoint(it.latitude, it.longitude), it.name)
+    } ?: emptyList()
+
+    val allPoints = mutableListOf<GeoPoint>().apply {
+        add(oPoint)
+        addAll(waypoints.map { it.first })
+        add(dPoint)
     }
-
-    // Default corridor: Motipur to Baruraj (Muzaffarpur, Bihar)
-    val oPoint = GeoPoint(26.1739, 85.1818) // Motipur
-    val midPoint = GeoPoint(26.1600, 85.1300) // Tajpur Mor / Bypass
-    val dPoint = GeoPoint(26.1465, 85.0782) // Baruraj
-
-    val waypoints = listOf(Pair(midPoint, "Tajpur Mor / Bypass"))
-    val allPoints = listOf(oPoint, midPoint, dPoint)
 
     return ResolvedCorridor(oPoint, originName, dPoint, destName, waypoints, allPoints)
 }
 
 /**
  * Modern, High-Performance Native OpenStreetMap Component (Ola / Uber / Rapido Style).
- * - 100% Free & Legal: Powered by OpenStreetMap & CartoDB tiles under ODbL with legal attribution.
+ * - 100% Free & Legal: Powered by OpenStreetMap Mapnik tiles and free OSRM road geometry.
  * - Zero Google Maps API keys or subscriptions required.
- * - Hardware accelerated with offline disk caching for high performance.
- * - Custom driver vehicle puck, route corridor polyline with casing, and transit pins.
+ * - Snaps to real roads, turns, and streets via Open Source Routing Machine (OSRM).
+ * - Custom driver vehicle puck with pulsing aura, route corridor polyline with casing, and transit pins.
  */
 @Composable
 fun GlipOsmMapView(
@@ -118,12 +114,43 @@ fun GlipOsmMapView(
 ) {
     val context = LocalContext.current
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
+    var casingLineRef by remember { mutableStateOf<Polyline?>(null) }
+    var coreLineRef by remember { mutableStateOf<Polyline?>(null) }
+    var roadSummary by remember { mutableStateOf<String?>("Loading street route...") }
 
     val corridor = remember(route) { resolveCorridorPoints(route) }
 
     DisposableEffect(Unit) {
         onDispose {
             mapViewRef?.onDetach()
+        }
+    }
+
+    // Fetch turn-by-turn road geometry asynchronously via Free OSRM
+    LaunchedEffect(corridor.originPoint.latitude, corridor.originPoint.longitude, corridor.destinationPoint.latitude, corridor.destinationPoint.longitude) {
+        val roadResult = OsrmRoutingHelper.fetchRoadRoute(
+            originLat = corridor.originPoint.latitude,
+            originLng = corridor.originPoint.longitude,
+            destLat = corridor.destinationPoint.latitude,
+            destLng = corridor.destinationPoint.longitude
+        )
+
+        if (roadResult != null && roadResult.points.isNotEmpty()) {
+            roadSummary = roadResult.summaryText
+            casingLineRef?.setPoints(roadResult.points)
+            coreLineRef?.setPoints(roadResult.points)
+
+            mapViewRef?.let { mv ->
+                try {
+                    val bbox = BoundingBox.fromGeoPoints(roadResult.points)
+                    mv.zoomToBoundingBox(bbox, true, 80)
+                } catch (e: Exception) {
+                    mv.controller.animateTo(corridor.originPoint)
+                }
+                mv.invalidate()
+            }
+        } else {
+            roadSummary = "Direct Corridor"
         }
     }
 
@@ -158,6 +185,7 @@ fun GlipOsmMapView(
                         setPoints(corridor.allCorridorPoints)
                     }
                     overlays.add(casingLine)
+                    casingLineRef = casingLine
 
                     val coreLine = Polyline(this).apply {
                         outlinePaint.color = AndroidColor.parseColor("#0284C7") // Electric cyan
@@ -168,6 +196,7 @@ fun GlipOsmMapView(
                         setPoints(corridor.allCorridorPoints)
                     }
                     overlays.add(coreLine)
+                    coreLineRef = coreLine
 
                     // Origin Pin (Green 'A')
                     val originMarker = Marker(this).apply {
@@ -239,7 +268,7 @@ fun GlipOsmMapView(
                             try {
                                 val bbox = BoundingBox.fromGeoPoints(corridor.allCorridorPoints)
                                 zoomToBoundingBox(bbox, true, 90)
-                            } catch (_: Exception) {
+                            } catch (e: Exception) {
                                 controller.setCenter(corridor.originPoint)
                             }
                         }
@@ -250,6 +279,38 @@ fun GlipOsmMapView(
             },
             modifier = Modifier.fillMaxSize()
         )
+
+        // Road ETA / Distance Badge (Ola/Uber style live road corridor HUD)
+        if (roadSummary != null) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 12.dp, top = 12.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xEE0F172A),
+                border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                shadowElevation = 4.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF38BDF8))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = roadSummary ?: "",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
 
         // Recenter to Driver Location FAB (Right Hand / Thumb-Friendly for Drivers)
         FloatingActionButton(

@@ -24,7 +24,7 @@ class GlipDriverApplication : Application() {
             val osmTileCache = File(osmBasePath, "tiles")
             osmTileCache.mkdirs()
             osmConfig.osmdroidTileCache = osmTileCache
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             // Safe fallback
         }
     }
