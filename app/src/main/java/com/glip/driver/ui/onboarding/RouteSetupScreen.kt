@@ -6,6 +6,7 @@ import android.view.MotionEvent
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +39,8 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -131,6 +134,7 @@ fun RouteSetupScreen(
 
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showMapPicker by remember { mutableStateOf(false) }
+    var saveAsFavorite by remember { mutableStateOf(false) }
 
     val locationManager = remember { DriverLocationManager(context.applicationContext) }
     val liveLocation by locationManager.currentLocation.collectAsState()
@@ -143,26 +147,9 @@ fun RouteSetupScreen(
         }
     }
 
-    // Saved Destinations with On/Off Toggle
+    // Saved Destinations with On/Off Toggle (User-created favorite routes)
     val savedDestinations = remember {
-        mutableStateListOf(
-            SavedDestinationItem(
-                id = "fav_home",
-                title = "Home",
-                address = "Home (Ghar Wapsi)",
-                iconCategory = "HOME",
-                lat = 21.1873,
-                lng = 80.7618
-            ),
-            SavedDestinationItem(
-                id = "fav_bus",
-                title = "Bus Stand",
-                address = "City Bus Stand",
-                iconCategory = "BUS",
-                lat = 21.0974,
-                lng = 81.0336
-            )
-        )
+        mutableStateListOf<SavedDestinationItem>()
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -245,6 +232,41 @@ fun RouteSetupScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Favorite Route Checkbox Option
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { saveAsFavorite = !saveAsFavorite }
+                .padding(vertical = 4.dp, horizontal = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = saveAsFavorite,
+                onCheckedChange = { saveAsFavorite = it },
+                colors = CheckboxDefaults.colors(
+                    checkedColor = Color(0xFF0284C7),
+                    uncheckedColor = Color(0xFF94A3B8)
+                )
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Column {
+                Text(
+                    text = "Save as Favorite Route",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = GlipNavyPrimary
+                )
+                Text(
+                    text = "Saved Destinations me add karein quick 1-tap activation ke liye",
+                    fontSize = 11.sp,
+                    color = Color(0xFF64748B)
+                )
+            }
+        }
+
         if (errorMessage != null) {
             Spacer(modifier = Modifier.height(10.dp))
             Surface(
@@ -285,22 +307,25 @@ fun RouteSetupScreen(
                         }
                     }
 
-                    // Check if already in saved destinations list; if not, add it
-                    val existingIndex = savedDestinations.indexOfFirst {
-                        it.title.equals(destText, ignoreCase = true) || it.address.equals(destText, ignoreCase = true)
-                    }
-                    if (existingIndex < 0) {
-                        savedDestinations.add(
-                            SavedDestinationItem(
-                                id = "dest_${System.currentTimeMillis()}",
-                                title = destText,
-                                address = destText,
-                                iconCategory = "CAR",
-                                lat = resolvedLat,
-                                lng = resolvedLng,
-                                isDeletable = true
+                    // If favorite option checked, add to saved destinations list
+                    if (saveAsFavorite) {
+                        val existingIndex = savedDestinations.indexOfFirst {
+                            it.title.equals(destText, ignoreCase = true) || it.address.equals(destText, ignoreCase = true)
+                        }
+                        if (existingIndex < 0) {
+                            savedDestinations.add(
+                                0,
+                                SavedDestinationItem(
+                                    id = "fav_${System.currentTimeMillis()}",
+                                    title = destText,
+                                    address = destText,
+                                    iconCategory = "CAR",
+                                    lat = resolvedLat,
+                                    lng = resolvedLng,
+                                    isDeletable = true
+                                )
                             )
-                        )
+                        }
                     }
 
                     val updated = DriverRoute(
@@ -320,7 +345,7 @@ fun RouteSetupScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Saved Destinations with On/Off Toggle
+        // Saved Destinations with On/Off Toggle (Broadcast subtitle removed)
         Text(
             text = "Saved Destinations",
             style = MaterialTheme.typography.titleMedium.copy(
@@ -328,12 +353,26 @@ fun RouteSetupScreen(
                 color = GlipNavyPrimary
             )
         )
-        Text(
-            text = "Turn ON to broadcast your route to passengers along this way",
-            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B), fontSize = 12.sp)
-        )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+
+        if (savedDestinations.isEmpty()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFF8FAFC),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            ) {
+                Text(
+                    text = "No favorite destinations saved yet. Type or pick a destination above and check 'Save as Favorite Route'.",
+                    fontSize = 12.sp,
+                    color = Color(0xFF64748B),
+                    modifier = Modifier.padding(14.dp)
+                )
+            }
+        } else {
 
         savedDestinations.forEach { item ->
             val isActive = currentRoute != null &&
@@ -489,6 +528,7 @@ fun RouteSetupScreen(
                 }
             }
         }
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
         }
@@ -516,6 +556,25 @@ fun RouteSetupScreen(
                     destLat = lat
                     destLng = lng
                     errorMessage = null
+                    if (saveAsFavorite) {
+                        val existingIndex = savedDestinations.indexOfFirst {
+                            it.title.equals(pickedAddress, ignoreCase = true) || it.address.equals(pickedAddress, ignoreCase = true)
+                        }
+                        if (existingIndex < 0) {
+                            savedDestinations.add(
+                                0,
+                                SavedDestinationItem(
+                                    id = "fav_${System.currentTimeMillis()}",
+                                    title = pickedAddress,
+                                    address = pickedAddress,
+                                    iconCategory = "CAR",
+                                    lat = lat,
+                                    lng = lng,
+                                    isDeletable = true
+                                )
+                            )
+                        }
+                    }
                     showMapPicker = false
                 },
                 onDismiss = { showMapPicker = false }
@@ -580,7 +639,7 @@ fun DestinationMapPickerView(
                 if (result != null) {
                     val point = GeoPoint(result.latitude, result.longitude)
                     mapViewInstance?.controller?.apply {
-                        setZoom(16.0)
+                        setZoom(17.0)
                         animateTo(point)
                     }
                     currentPickedAddress = result.address
@@ -596,50 +655,147 @@ fun DestinationMapPickerView(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-        ) {
-            // Pinned Header Bar: Title and Close button (Permanently fixed at top, never jumps)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
-                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Select Destination on Map",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = GlipNavyPrimary
-                    )
-                    Text(
-                        text = "Point crosshair pin to your target location",
-                        fontSize = 11.sp,
-                        color = Color(0xFF64748B)
-                    )
-                }
-                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = Color(0xFF64748B)
-                    )
-                }
-            }
+        // 1. Rock-solid Fullscreen Native OpenStreetMap (Base Layer - Never shifts or jumps)
+        AndroidView(
+            factory = { ctx ->
+                MapView(ctx).apply {
+                    setTileSource(TileSourceFactory.MAPNIK)
+                    setMultiTouchControls(true)
+                    isTilesScaledToDpi = true
+                    isFlingEnabled = true
+                    minZoomLevel = 4.0
+                    maxZoomLevel = 20.0
+                    zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
-            // Pinned Search Bar in Map View with Keyboard Actions & Go Button
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
-                    .padding(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    val centerLat = if (initialLat != 0.0) initialLat else 21.0974
+                    val centerLng = if (initialLng != 0.0) initialLng else 81.0336
+                    val initialPoint = GeoPoint(centerLat, centerLng)
+                    controller.setZoom(17.0)
+                    controller.setCenter(initialPoint)
+
+                    // Driver live vehicle marker
+                    if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0) {
+                        val puck = Marker(this).apply {
+                            position = GeoPoint(driverLiveLocation.latitude, driverLiveLocation.longitude)
+                            icon = createDriverVehiclePuck(ctx)
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                            title = "Your Current Location"
+                        }
+                        overlays.add(puck)
+                    }
+
+                    // Smooth touch handling without interrupting drag
+                    setOnTouchListener { v, event ->
+                        when (event.action) {
+                            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                                v.parent?.requestDisallowInterceptTouchEvent(true)
+                            }
+                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                v.parent?.requestDisallowInterceptTouchEvent(false)
+                            }
+                        }
+                        false
+                    }
+
+                    // Listen to map movement to live reverse-geocode center position
+                    addMapListener(object : MapListener {
+                        override fun onScroll(event: ScrollEvent?): Boolean {
+                            triggerReverseGeocode()
+                            return false
+                        }
+
+                        override fun onZoom(event: ZoomEvent?): Boolean {
+                            triggerReverseGeocode()
+                            return false
+                        }
+                    })
+
+                    onResume()
+                    mapViewInstance = this
+                }
+            },
+            update = { mv ->
+                if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0) {
+                    var driverMarker = mv.overlays.filterIsInstance<Marker>().find { it.title == "Your Current Location" }
+                    if (driverMarker == null) {
+                        driverMarker = Marker(mv).apply {
+                            icon = createDriverVehiclePuck(mv.context)
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                            title = "Your Current Location"
+                        }
+                        mv.overlays.add(driverMarker)
+                    }
+                    driverMarker.position = GeoPoint(driverLiveLocation.latitude, driverLiveLocation.longitude)
+                    mv.invalidate()
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // 2. Fixed Center Pin & Target Shadow Dot
+        Icon(
+            imageVector = Icons.Default.Place,
+            contentDescription = "Center Point Pin",
+            tint = Color(0xFFEF4444),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(46.dp)
+                .offset(y = (-23).dp)
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.5f))
+        )
+
+        // 3. Floating Top Bar: Title, Close Button & Full Search Bar (Never jumps or hides!)
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            shadowElevation = 6.dp,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
+                // Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Select Destination on Map",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = GlipNavyPrimary
+                        )
+                        Text(
+                            text = "Point crosshair pin to your target location",
+                            fontSize = 11.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color(0xFF64748B)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Search Bar with Search Icon, Clear, and Go
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -697,216 +853,115 @@ fun DestinationMapPickerView(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+        }
 
-            // Map Canvas with Center Pin, Driver GPS Puck, & My Location Blue FAB
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+        // 4. Blue Current Location FAB Button (Above bottom card)
+        FloatingActionButton(
+            onClick = {
+                val curLat: Double
+                val curLng: Double
+                if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0) {
+                    curLat = driverLiveLocation.latitude
+                    curLng = driverLiveLocation.longitude
+                } else {
+                    val best = locationManager.getBestLastKnownLocation()
+                    if (best != null && best.latitude != 0.0) {
+                        curLat = best.latitude
+                        curLng = best.longitude
+                    } else {
+                        curLat = 0.0
+                        curLng = 0.0
+                    }
+                }
+
+                if (curLat != 0.0 && curLng != 0.0) {
+                    val myPoint = GeoPoint(curLat, curLng)
+                    mapViewInstance?.controller?.apply {
+                        setZoom(17.0)
+                        animateTo(myPoint)
+                    }
+                    coroutineScope.launch {
+                        currentPickedAddress = "Locating address..."
+                        val addr = OsmGeocoderHelper.reverseGeocode(context, curLat, curLng)
+                        currentPickedAddress = addr
+                    }
+                } else {
+                    locationManager.refreshGpsStatus()
+                    locationManager.startTracking()
+                    Toast.makeText(
+                        context,
+                        "Device GPS search kar raha hai... Kripya 2 second ruk kar dubara tap karein.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 180.dp)
+                .size(46.dp),
+            containerColor = Color(0xFF0284C7),
+            contentColor = Color.White,
+            shape = CircleShape,
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.MyLocation,
+                contentDescription = "My Current Location",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        // 5. Floating Bottom Action Card: Selected Location + Confirm Destination Button
+        Card(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .navigationBarsPadding(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp)
             ) {
-                AndroidView(
-                    factory = { ctx ->
-                        MapView(ctx).apply {
-                            setTileSource(TileSourceFactory.MAPNIK)
-                            setMultiTouchControls(true)
-                            isTilesScaledToDpi = true
-                            isFlingEnabled = true
-                            minZoomLevel = 4.0
-                            maxZoomLevel = 20.0
-                            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-
-                            val centerLat = if (initialLat != 0.0) initialLat else 21.0974
-                            val centerLng = if (initialLng != 0.0) initialLng else 81.0336
-                            val initialPoint = GeoPoint(centerLat, centerLng)
-                            controller.setZoom(16.0)
-                            controller.setCenter(initialPoint)
-
-                            // Driver live vehicle marker
-                            if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0) {
-                                val puck = Marker(this).apply {
-                                    position = GeoPoint(driverLiveLocation.latitude, driverLiveLocation.longitude)
-                                    icon = createDriverVehiclePuck(ctx)
-                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                    title = "Your Current Location"
-                                }
-                                overlays.add(puck)
-                            }
-
-                            // Smooth touch handling without interrupting drag or shifting window
-                            setOnTouchListener { v, event ->
-                                when (event.action) {
-                                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                                        v.parent?.requestDisallowInterceptTouchEvent(true)
-                                    }
-                                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                        v.parent?.requestDisallowInterceptTouchEvent(false)
-                                    }
-                                }
-                                false
-                            }
-
-                            // Listen to map movement to live reverse-geocode center position
-                            addMapListener(object : MapListener {
-                                override fun onScroll(event: ScrollEvent?): Boolean {
-                                    triggerReverseGeocode()
-                                    return false
-                                }
-
-                                override fun onZoom(event: ZoomEvent?): Boolean {
-                                    triggerReverseGeocode()
-                                    return false
-                                }
-                            })
-
-                            onResume()
-                            mapViewInstance = this
-                        }
-                    },
-                    update = { mv ->
-                        if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0) {
-                            var driverMarker = mv.overlays.filterIsInstance<Marker>().find { it.title == "Your Current Location" }
-                            if (driverMarker == null) {
-                                driverMarker = Marker(mv).apply {
-                                    icon = createDriverVehiclePuck(mv.context)
-                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                    title = "Your Current Location"
-                                }
-                                mv.overlays.add(driverMarker)
-                            }
-                            driverMarker.position = GeoPoint(driverLiveLocation.latitude, driverLiveLocation.longitude)
-                            mv.invalidate()
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                // Center Crosshair Pin (Red Map Pin)
-                Icon(
-                    imageVector = Icons.Default.Place,
-                    contentDescription = "Center Point Pin",
-                    tint = Color(0xFFEF4444),
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(46.dp)
-                        .offset(y = (-23).dp)
-                )
-
-                // Center Pin Target Shadow Dot
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.5f))
-                )
-
-                // Blue Current Location FAB Button (Recenter to live GPS location)
-                FloatingActionButton(
-                    onClick = {
-                        val curLat: Double
-                        val curLng: Double
-                        if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0) {
-                            curLat = driverLiveLocation.latitude
-                            curLng = driverLiveLocation.longitude
-                        } else {
-                            val best = locationManager.getBestLastKnownLocation()
-                            if (best != null && best.latitude != 0.0) {
-                                curLat = best.latitude
-                                curLng = best.longitude
-                            } else {
-                                curLat = 0.0
-                                curLng = 0.0
-                            }
-                        }
-
-                        if (curLat != 0.0 && curLng != 0.0) {
-                            val myPoint = GeoPoint(curLat, curLng)
-                            mapViewInstance?.controller?.apply {
-                                setZoom(16.0)
-                                animateTo(myPoint)
-                            }
-                            coroutineScope.launch {
-                                currentPickedAddress = "Locating address..."
-                                val addr = OsmGeocoderHelper.reverseGeocode(context, curLat, curLng)
-                                currentPickedAddress = addr
-                            }
-                        } else {
-                            locationManager.refreshGpsStatus()
-                            locationManager.startTracking()
-                            Toast.makeText(
-                                context,
-                                "Device GPS search kar raha hai... Kripya 2 second ruk kar dubara tap karein.",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(bottom = 14.dp, end = 14.dp)
-                        .size(44.dp),
-                    containerColor = Color(0xFF0284C7),
-                    contentColor = Color.White,
-                    shape = CircleShape,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.MyLocation,
-                        contentDescription = "My Current Location",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        imageVector = Icons.Default.Place,
+                        contentDescription = null,
+                        tint = Color(0xFF0284C7),
+                        modifier = Modifier.size(18.dp)
                     )
-                }
-            }
-
-            // Bottom Action Bar: Confirm Location
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
-                    .navigationBarsPadding(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Place,
-                            contentDescription = null,
-                            tint = Color(0xFF0284C7),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Selected Location",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF64748B)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = currentPickedAddress,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = GlipNavyPrimary,
-                        maxLines = 3
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    GlipPrimaryButton(
-                        text = "Confirm Destination",
-                        onClick = {
-                            val center = mapViewInstance?.mapCenter
-                            val lat = center?.latitude ?: initialLat
-                            val lng = center?.longitude ?: initialLng
-                            onLocationSelected(currentPickedAddress, lat, lng)
-                        }
+                        text = "Selected Location",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF64748B)
                     )
                 }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = currentPickedAddress,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = GlipNavyPrimary,
+                    maxLines = 3
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                GlipPrimaryButton(
+                    text = "Confirm Destination",
+                    onClick = {
+                        val center = mapViewInstance?.mapCenter
+                        val lat = center?.latitude ?: initialLat
+                        val lng = center?.longitude ?: initialLng
+                        onLocationSelected(currentPickedAddress, lat, lng)
+                    }
+                )
             }
         }
     }

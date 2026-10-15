@@ -260,10 +260,8 @@ fun GlipOsmMapView(
             mapViewRef?.let { mv ->
                 if (!hasCenteredOnDriver) {
                     mv.controller.setCenter(driverGeoPoint)
-                    mv.controller.setZoom(16.0)
+                    mv.controller.setZoom(17.0)
                     hasCenteredOnDriver = true
-                } else {
-                    mv.controller.animateTo(driverGeoPoint)
                 }
             }
         }
@@ -309,7 +307,7 @@ fun GlipOsmMapView(
 
                 mapViewRef?.let { mv ->
                     mv.controller.apply {
-                        setZoom(16.0)
+                        setZoom(17.0)
                         animateTo(driverGeoPoint)
                     }
                     mv.invalidate()
@@ -322,7 +320,7 @@ fun GlipOsmMapView(
             originMarkerRef?.isEnabled = false
             destMarkerRef?.isEnabled = false
             mapViewRef?.controller?.apply {
-                setZoom(16.0)
+                setZoom(17.0)
                 setCenter(driverGeoPoint)
             }
             mapViewRef?.invalidate()
@@ -348,7 +346,7 @@ fun GlipOsmMapView(
                         false
                     }
 
-                    controller.setZoom(16.0)
+                    controller.setZoom(17.0)
                     controller.setCenter(driverGeoPoint)
 
                     // Polyline: Solid Jet-Black road curve matching Screenshot 2
@@ -424,7 +422,7 @@ fun GlipOsmMapView(
 
                     post {
                         controller.setCenter(driverGeoPoint)
-                        controller.setZoom(16.0)
+                        controller.setZoom(17.0)
                     }
 
                     mapViewRef = this
@@ -443,7 +441,7 @@ fun GlipOsmMapView(
             FloatingActionButton(
                 onClick = {
                     mapViewRef?.controller?.apply {
-                        setZoom(16.0)
+                        setZoom(17.0)
                         animateTo(driverGeoPoint)
                     }
                 },
