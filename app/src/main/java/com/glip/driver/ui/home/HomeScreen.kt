@@ -362,33 +362,34 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(Color(0xFFF8FAFC))
         ) {
-            // Unified Top Header Bar Box: Menu | Online/Offline Toggle | Route Setup in ONE Card
+            // Compact, Slim Top Header Bar: Menu | Online/Offline Toggle | Route Setup in ONE Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
-                shape = RoundedCornerShape(16.dp),
+                    .padding(horizontal = 12.dp, vertical = 3.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                        .height(44.dp)
+                        .padding(horizontal = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // 1. Hamburger Menu Button
                     IconButton(
                         onClick = { coroutineScope.launch { drawerState.open() } },
-                        modifier = Modifier.size(38.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "Menu Bar",
                             tint = GlipNavyPrimary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -396,28 +397,28 @@ fun HomeScreen(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .background(if (isAvailable) Color(0xFFDCFCE7) else Color(0xFFF1F5F9))
                             .border(
                                 1.dp,
                                 if (isAvailable) Color(0xFF86EFAC) else Color(0xFFCBD5E1),
-                                RoundedCornerShape(20.dp)
+                                RoundedCornerShape(16.dp)
                             )
                             .clickable {
                                 coroutineScope.launch {
                                     repository.setAvailable(!isAvailable)
                                 }
                             }
-                            .padding(start = 10.dp, end = 4.dp, top = 2.dp, bottom = 2.dp)
+                            .padding(start = 8.dp, end = 2.dp, top = 1.dp, bottom = 1.dp)
                     ) {
                         Text(
                             text = if (isAvailable) "ONLINE" else "OFFLINE",
                             color = if (isAvailable) Color(0xFF15803D) else Color(0xFF64748B),
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
                         Switch(
                             checked = isAvailable,
                             onCheckedChange = { checked ->
@@ -431,31 +432,31 @@ fun HomeScreen(
                                 uncheckedTrackColor = Color(0xFF94A3B8),
                                 uncheckedBorderColor = Color(0xFF94A3B8)
                             ),
-                            modifier = Modifier.scale(0.8f)
+                            modifier = Modifier.scale(0.7f)
                         )
                     }
 
                     // 3. Planned Route Setup Button
                     Surface(
                         onClick = onEditRoute,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = Color(0xFFF0F9FF),
                         border = BorderStroke(1.dp, Color(0xFFBAE6FD))
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AltRoute,
                                 contentDescription = "Planned Route Setup",
                                 tint = Color(0xFF0284C7),
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = "Route",
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0284C7)
                             )

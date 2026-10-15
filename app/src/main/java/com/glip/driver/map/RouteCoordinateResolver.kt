@@ -41,6 +41,11 @@ object RouteCoordinateResolver {
             // Patna
             q.contains("patna") -> Pair(25.5941, 85.1376)
 
+            // Chhattisgarh (Rajnandgaon / Dongargarh Corridor)
+            q.contains("rajnandgaon") -> Pair(21.0974, 81.0336)
+            q.contains("dongargarh") -> Pair(21.1873, 80.7618)
+            q.contains("nava gaon") || q.contains("patel") -> Pair(21.1200, 80.9500)
+
             // Delhi / NCR
             q.contains("connaught") || q.contains("delhi") -> Pair(28.6139, 77.2090)
             q.contains("noida") -> Pair(28.5355, 77.3910)
