@@ -1,6 +1,7 @@
 package com.glip.driver.map
 
 import android.content.Context
+import android.location.Location
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
@@ -110,15 +111,32 @@ fun resolveCorridorPoints(route: DriverRoute?): ResolvedCorridor {
 fun GlipOsmMapView(
     route: DriverRoute?,
     requests: List<PassengerRequest> = emptyList(),
+    driverLiveLocation: Location? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
     var casingLineRef by remember { mutableStateOf<Polyline?>(null) }
     var coreLineRef by remember { mutableStateOf<Polyline?>(null) }
+    var driverPuckRef by remember { mutableStateOf<Marker?>(null) }
     var roadSummary by remember { mutableStateOf<String?>("Loading street route...") }
 
     val corridor = remember(route) { resolveCorridorPoints(route) }
+
+    // Live driver position from real device GPS, fallback to corridor start
+    val driverGeoPoint = remember(driverLiveLocation, corridor.originPoint) {
+        if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0 && driverLiveLocation.longitude != 0.0) {
+            GeoPoint(driverLiveLocation.latitude, driverLiveLocation.longitude)
+        } else {
+            corridor.originPoint
+        }
+    }
+
+    // Keep vehicle puck synced with live GPS movement
+    LaunchedEffect(driverGeoPoint) {
+        driverPuckRef?.position = driverGeoPoint
+        mapViewRef?.invalidate()
+    }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -126,11 +144,11 @@ fun GlipOsmMapView(
         }
     }
 
-    // Fetch turn-by-turn road geometry asynchronously via Free OSRM
-    LaunchedEffect(corridor.originPoint.latitude, corridor.originPoint.longitude, corridor.destinationPoint.latitude, corridor.destinationPoint.longitude) {
+    // Fetch turn-by-turn road geometry asynchronously via Free OSRM (from Driver Live Position to Destination)
+    LaunchedEffect(driverGeoPoint.latitude, driverGeoPoint.longitude, corridor.destinationPoint.latitude, corridor.destinationPoint.longitude) {
         val roadResult = OsrmRoutingHelper.fetchRoadRoute(
-            originLat = corridor.originPoint.latitude,
-            originLng = corridor.originPoint.longitude,
+            originLat = driverGeoPoint.latitude,
+            originLng = driverGeoPoint.longitude,
             destLat = corridor.destinationPoint.latitude,
             destLng = corridor.destinationPoint.longitude
         )
@@ -145,7 +163,7 @@ fun GlipOsmMapView(
                     val bbox = BoundingBox.fromGeoPoints(roadResult.points)
                     mv.zoomToBoundingBox(bbox, true, 80)
                 } catch (e: Exception) {
-                    mv.controller.animateTo(corridor.originPoint)
+                    mv.controller.animateTo(driverGeoPoint)
                 }
                 mv.invalidate()
             }
@@ -230,15 +248,16 @@ fun GlipOsmMapView(
                     }
                     overlays.add(destMarker)
 
-                    // Driver Location Puck (Ola/Uber navigation aura)
+                    // Driver Location Puck (Ola/Uber navigation aura from real device GPS)
                     val driverPuck = Marker(this).apply {
-                        position = corridor.originPoint
+                        position = driverGeoPoint
                         icon = createDriverVehiclePuck(ctx)
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        title = "Your Vehicle (Online)"
+                        title = if (driverLiveLocation != null) "Your Vehicle (Live GPS)" else "Your Vehicle (Online)"
                         snippet = "Active for route sharing"
                     }
                     overlays.add(driverPuck)
+                    driverPuckRef = driverPuck
 
                     // Projected Passenger Pooling Request Pins
                     requests.take(3).forEach { req ->
@@ -315,7 +334,7 @@ fun GlipOsmMapView(
         // Recenter to Driver Location FAB (Right Hand / Thumb-Friendly for Drivers)
         FloatingActionButton(
             onClick = {
-                mapViewRef?.controller?.animateTo(corridor.originPoint)
+                mapViewRef?.controller?.animateTo(driverGeoPoint)
             },
             modifier = Modifier
                 .align(Alignment.TopEnd)
