@@ -335,7 +335,7 @@ fun HomeScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, top = 8.dp, bottom = 4.dp),
+                    .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 4.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
@@ -461,7 +461,7 @@ fun HomeScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, top = 4.dp, bottom = 10.dp),
+                    .padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 10.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
