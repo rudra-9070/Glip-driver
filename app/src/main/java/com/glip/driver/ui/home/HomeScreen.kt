@@ -331,164 +331,57 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(Color(0xFFF8FAFC))
         ) {
-            // Top Hero Header Bar Box: 60dp Height, Premium Sleek Layout
+            // Top Advertisement Space (Prominent Banner at the top of screen)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                    .padding(horizontal = 14.dp, top = 8.dp, bottom = 4.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(60.dp)
-                        .padding(horizontal = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // 1. Hamburger Menu Button (Toggles drawer open/close)
-                    IconButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                if (drawerState.isOpen) drawerState.close() else drawerState.open()
-                            }
-                        },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Menu Bar",
-                            tint = GlipNavyPrimary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
-                    // 2. Premium Custom Online / Offline Toggle Button
-                    val isOnline = isAvailable
-                    val toggleBgColor by animateColorAsState(
-                        targetValue = if (isOnline) Color(0xFF16A34A) else Color(0xFFF1F5F9),
-                        label = "toggleBg"
-                    )
-                    val toggleBorderColor by animateColorAsState(
-                        targetValue = if (isOnline) Color(0xFF15803D) else Color(0xFFCBD5E1),
-                        label = "toggleBorder"
-                    )
-                    val toggleTextColor by animateColorAsState(
-                        targetValue = if (isOnline) Color.White else Color(0xFF64748B),
-                        label = "toggleText"
-                    )
-
-                    Surface(
-                        onClick = {
-                            coroutineScope.launch {
-                                repository.setAvailable(!isOnline)
-                            }
-                        },
-                        shape = RoundedCornerShape(22.dp),
-                        color = toggleBgColor,
-                        border = BorderStroke(1.dp, toggleBorderColor),
-                        modifier = Modifier
-                            .width(132.dp)
-                            .height(40.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 5.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Text Label on appropriate side
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp),
-                                horizontalArrangement = if (isOnline) Arrangement.Start else Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = if (isOnline) "ONLINE" else "OFFLINE",
-                                    color = toggleTextColor,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 0.5.sp
-                                )
-                            }
-
-                            // Sliding Circular Thumb with Shadow
-                            Box(
-                                modifier = Modifier
-                                    .align(if (isOnline) Alignment.CenterEnd else Alignment.CenterStart)
-                                    .size(30.dp)
-                                    .shadow(elevation = 3.dp, shape = CircleShape)
-                                    .clip(CircleShape)
-                                    .background(Color.White),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isOnline) Color(0xFF16A34A) else Color(0xFF94A3B8))
-                                )
-                            }
-                        }
-                    }
-
-                    // 3. Planned Route Setup Button
-                    Surface(
-                        onClick = onEditRoute,
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFF0F9FF),
-                        border = BorderStroke(1.dp, Color(0xFFBAE6FD)),
-                        modifier = Modifier.height(40.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AltRoute,
-                                contentDescription = "Planned Route Setup",
-                                tint = Color(0xFF0284C7),
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = "Route",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0284C7)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Advertisement Space (Directly below Top Bar Box)
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(80.dp),
+                        .height(115.dp)
+                        .background(Color(0xFFFAFAFA)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "Advertisement Space",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    // Subtle Ad tag in top-right
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 8.dp, end = 10.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFFF1F5F9))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "AD",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF94A3B8)
+                        )
+                    }
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Advertisement Space",
+                            color = Color(0xFF64748B),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Sponsored Banner Area",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 12.sp
+                        )
+                    }
                 }
             }
 
@@ -564,86 +457,142 @@ fun HomeScreen(
                 }
             }
 
-            // 2 Seat Available & Passenger Requests Box (At bottom of screen)
+            // Bottom Controls Bar Box: Menu, Compact Online/Offline Toggle, Route (Moved to Bottom)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
-                shape = RoundedCornerShape(14.dp),
+                    .padding(horizontal = 14.dp, top = 4.dp, bottom = 10.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .height(58.dp)
+                        .padding(horizontal = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left: Seat capacity status
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 1. Hamburger Menu Button (Toggles drawer open/close)
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                if (drawerState.isOpen) drawerState.close() else drawerState.open()
+                            }
+                        },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Menu Bar",
+                            tint = GlipNavyPrimary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    // 2. Compact Online / Offline Toggle (Only Border turns Green, background stays white)
+                    val isOnline = isAvailable
+                    val toggleBorderColor by animateColorAsState(
+                        targetValue = if (isOnline) Color(0xFF16A34A) else Color(0xFFCBD5E1),
+                        label = "toggleBorder"
+                    )
+                    val toggleTextColor by animateColorAsState(
+                        targetValue = if (isOnline) Color(0xFF16A34A) else Color(0xFF64748B),
+                        label = "toggleText"
+                    )
+
+                    Surface(
+                        onClick = {
+                            coroutineScope.launch {
+                                repository.setAvailable(!isOnline)
+                            }
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White,
+                        border = BorderStroke(if (isOnline) 1.5.dp else 1.dp, toggleBorderColor),
+                        modifier = Modifier
+                            .width(108.dp)
+                            .height(38.dp)
+                    ) {
                         Box(
                             modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFE0F2FE)),
+                                .fillMaxSize()
+                                .padding(horizontal = 4.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.DirectionsCar,
-                                contentDescription = "Vehicle",
-                                tint = Color(0xFF0284C7),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            val availSeats = vehicle?.availableSeats ?: 3
-                            Text(
-                                text = "$availSeats Seat(s) Available",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
-                            )
-                            Text(
-                                text = vehicle?.displayName ?: "Vehicle Active",
-                                fontSize = 11.sp,
-                                color = Color(0xFF64748B)
-                            )
+                            // Text Label on appropriate side
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 6.dp),
+                                horizontalArrangement = if (isOnline) Arrangement.Start else Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isOnline) "ONLINE" else "OFFLINE",
+                                    color = toggleTextColor,
+                                    fontSize = if (isOnline) 11.sp else 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+
+                            // Sliding Circular Thumb with Shadow
+                            Box(
+                                modifier = Modifier
+                                    .align(if (isOnline) Alignment.CenterEnd else Alignment.CenterStart)
+                                    .size(28.dp)
+                                    .shadow(elevation = 2.dp, shape = CircleShape)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isOnline) Color(0xFF16A34A).copy(alpha = 0.3f) else Color(0xFFE2E8F0),
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isOnline) Color(0xFF16A34A) else Color(0xFF94A3B8))
+                                )
+                            }
                         }
                     }
 
-                    // Right: Requests Action Button
+                    // 3. Planned Route Setup Button
                     Surface(
-                        onClick = onViewAllRequests,
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (requests.isNotEmpty()) Color(0xFFF0FDF4) else Color(0xFFF8FAFC),
-                        border = BorderStroke(1.dp, if (requests.isNotEmpty()) Color(0xFFBBF7D0) else Color(0xFFE2E8F0))
+                        onClick = onEditRoute,
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF0F9FF),
+                        border = BorderStroke(1.dp, Color(0xFFBAE6FD)),
+                        modifier = Modifier.height(38.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.People,
-                                contentDescription = "Requests",
-                                tint = if (requests.isNotEmpty()) Color(0xFF16A34A) else Color(0xFF64748B),
-                                modifier = Modifier.size(15.dp)
+                                imageVector = Icons.Default.AltRoute,
+                                contentDescription = "Planned Route Setup",
+                                tint = Color(0xFF0284C7),
+                                modifier = Modifier.size(17.dp)
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = "Requests (${requests.size})",
+                                text = "Route",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (requests.isNotEmpty()) Color(0xFF16A34A) else Color(0xFF64748B)
+                                color = Color(0xFF0284C7)
                             )
                         }
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
         }
 
         // GPS ON Prompt Dialog - Prompt driver to turn ON GPS whenever it is off
