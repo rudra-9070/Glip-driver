@@ -2,6 +2,7 @@ package com.glip.driver.ui.onboarding
 
 import android.content.Context
 import android.location.Geocoder
+import android.view.MotionEvent
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -62,6 +63,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -494,6 +497,10 @@ fun RouteSetupScreen(
  * Interactive Dialog: Map with search bar, draggable center pin, real-time location resolution,
  * and Current Location FAB (Blue button).
  */
+/**
+ * Interactive Dialog: Full-screen Map with permanently locked top search bar, draggable center pin,
+ * real-time location resolution, and Current Location FAB (Blue button).
+ */
 @Composable
 fun DestinationMapPickerDialog(
     initialLat: Double,
@@ -502,6 +509,8 @@ fun DestinationMapPickerDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
@@ -530,6 +539,8 @@ fun DestinationMapPickerDialog(
     fun performSearch() {
         val query = searchQuery.trim()
         if (query.isBlank()) return
+        focusManager.clearFocus()
+        keyboardController?.hide()
         isSearching = true
         coroutineScope.launch {
             val result = OsmGeocoderHelper.searchLocation(context, query)
@@ -538,7 +549,7 @@ fun DestinationMapPickerDialog(
                 if (result != null) {
                     val point = GeoPoint(result.latitude, result.longitude)
                     mapViewInstance?.controller?.apply {
-                        setZoom(19.0)
+                        setZoom(18.0)
                         animateTo(point)
                     }
                     currentPickedAddress = result.address
@@ -551,21 +562,22 @@ fun DestinationMapPickerDialog(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = true
+        )
     ) {
         Surface(
-            shape = RoundedCornerShape(16.dp),
             color = Color.White,
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.92f)
+            modifier = Modifier.fillMaxSize()
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Header Bar: Title and Close button
+                // Pinned Header Bar: Title and Close button (Permanently fixed at top)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .background(Color.White)
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -591,10 +603,11 @@ fun DestinationMapPickerDialog(
                     }
                 }
 
-                // Search Bar in Map Dialog with Keyboard Actions & Go Button
+                // Pinned Search Bar in Map Dialog with Keyboard Actions & Go Button
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .background(Color.White)
                         .padding(horizontal = 14.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -656,7 +669,7 @@ fun DestinationMapPickerDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 // Map Canvas with Center Pin & My Location Blue FAB
                 Box(
@@ -671,16 +684,29 @@ fun DestinationMapPickerDialog(
                                 setMultiTouchControls(true)
                                 isTilesScaledToDpi = true
                                 isFlingEnabled = true
-                                maxZoomLevel = 26.0
+                                minZoomLevel = 4.0
+                                maxZoomLevel = 20.0
                                 zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
                                 val initialPoint = GeoPoint(initialLat, initialLng)
                                 controller.setZoom(18.0)
                                 controller.setCenter(initialPoint)
 
-                                // Prevent parent touch interception for smooth drag & pinch
-                                setOnTouchListener { v, _ ->
-                                    v.parent?.requestDisallowInterceptTouchEvent(true)
+                                // Handle touch events: disallow parent intercept & dismiss keyboard cleanly
+                                setOnTouchListener { v, event ->
+                                    when (event.action) {
+                                        MotionEvent.ACTION_DOWN -> {
+                                            v.parent?.requestDisallowInterceptTouchEvent(true)
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                        }
+                                        MotionEvent.ACTION_MOVE -> {
+                                            v.parent?.requestDisallowInterceptTouchEvent(true)
+                                        }
+                                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                            v.parent?.requestDisallowInterceptTouchEvent(false)
+                                        }
+                                    }
                                     false
                                 }
 
@@ -729,7 +755,7 @@ fun DestinationMapPickerDialog(
                         onClick = {
                             val myPoint = GeoPoint(initialLat, initialLng)
                             mapViewInstance?.controller?.apply {
-                                setZoom(20.0)
+                                setZoom(18.5)
                                 animateTo(myPoint)
                             }
                             coroutineScope.launch {

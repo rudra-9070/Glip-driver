@@ -112,26 +112,6 @@ fun RequestsScreen(
                         color = GlipNavyPrimary
                     )
                 )
-                Text(
-                    text = "Passengers seeking seats along your route corridor",
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // Filter Chips Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf("All", "Good Match", "Partial", "Available Seats").forEach { filterName ->
-                FilterChip(
-                    selected = selectedFilter == filterName,
-                    onClick = { selectedFilter = filterName },
-                    label = { Text(filterName, fontSize = 12.sp) }
-                )
             }
         }
 

@@ -171,9 +171,22 @@ fun GlipOsmMapView(
         }
     }
 
-    // Keep vehicle puck synced with live GPS movement
-    LaunchedEffect(driverGeoPoint) {
+    var hasCenteredOnDriver by remember { mutableStateOf(false) }
+
+    // Keep vehicle puck synced with live GPS movement and auto-center camera on driver
+    LaunchedEffect(driverGeoPoint, driverLiveLocation) {
         driverPuckRef?.position = driverGeoPoint
+        if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0) {
+            mapViewRef?.let { mv ->
+                if (!hasCenteredOnDriver) {
+                    mv.controller.setCenter(driverGeoPoint)
+                    mv.controller.setZoom(18.5)
+                    hasCenteredOnDriver = true
+                } else {
+                    mv.controller.animateTo(driverGeoPoint)
+                }
+            }
+        }
         mapViewRef?.invalidate()
     }
 
@@ -215,7 +228,7 @@ fun GlipOsmMapView(
 
                 mapViewRef?.let { mv ->
                     mv.controller.apply {
-                        setZoom(22.0)
+                        setZoom(18.5)
                         animateTo(driverGeoPoint)
                     }
                     mv.invalidate()
@@ -228,7 +241,7 @@ fun GlipOsmMapView(
             originMarkerRef?.isEnabled = false
             destMarkerRef?.isEnabled = false
             mapViewRef?.controller?.apply {
-                setZoom(24.0)
+                setZoom(18.5)
                 setCenter(driverGeoPoint)
             }
             mapViewRef?.invalidate()
@@ -245,7 +258,7 @@ fun GlipOsmMapView(
                     isTilesScaledToDpi = true
                     isFlingEnabled = true
                     minZoomLevel = 4.0
-                    maxZoomLevel = 26.0
+                    maxZoomLevel = 20.0
                     zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
                     // Ensure touch pinch-to-zoom and pan events are not intercepted by parent views
@@ -254,7 +267,7 @@ fun GlipOsmMapView(
                         false
                     }
 
-                    controller.setZoom(24.0)
+                    controller.setZoom(18.5)
                     controller.setCenter(driverGeoPoint)
 
                     // Polyline: Solid Jet-Black road curve matching Screenshot 2
@@ -329,7 +342,7 @@ fun GlipOsmMapView(
 
                     post {
                         controller.setCenter(driverGeoPoint)
-                        controller.setZoom(24.0)
+                        controller.setZoom(18.5)
                     }
 
                     mapViewRef = this
@@ -342,7 +355,7 @@ fun GlipOsmMapView(
         FloatingActionButton(
             onClick = {
                 mapViewRef?.controller?.apply {
-                    setZoom(24.0)
+                    setZoom(18.5)
                     animateTo(driverGeoPoint)
                 }
             },

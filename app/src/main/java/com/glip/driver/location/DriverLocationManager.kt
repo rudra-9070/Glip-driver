@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Looper
 import android.provider.Settings
@@ -81,42 +82,86 @@ class DriverLocationManager(private val context: Context) : LocationListener {
         }
 
         val lm = locationManager ?: return
-        if (isListening) return
 
         try {
-            // Immediate fix from last known location
-            var bestLastKnown: Location? = null
-            if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                bestLastKnown = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            }
-            if (bestLastKnown == null && lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                bestLastKnown = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            // Find best last known location across all providers
+            var bestLastKnown: Location? = _currentLocation.value
+            val providers = lm.getProviders(true)
+            for (p in providers) {
+                try {
+                    val loc = lm.getLastKnownLocation(p)
+                    if (loc != null && (bestLastKnown == null || loc.time > bestLastKnown.time)) {
+                        bestLastKnown = loc
+                    }
+                } catch (ignored: Exception) {}
             }
             if (bestLastKnown != null) {
                 _currentLocation.value = bestLastKnown
             }
 
-            // Register continuous live updates
+            // On Android 11+ (API 30+), request immediate one-shot location
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val executor = ContextCompat.getMainExecutor(context)
+                if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    try {
+                        lm.getCurrentLocation(LocationManager.GPS_PROVIDER, null, executor) { loc ->
+                            if (loc != null) _currentLocation.value = loc
+                        }
+                    } catch (ignored: Exception) {}
+                }
+                if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                    try {
+                        lm.getCurrentLocation(LocationManager.NETWORK_PROVIDER, null, executor) { loc ->
+                            if (loc != null) _currentLocation.value = loc
+                        }
+                    } catch (ignored: Exception) {}
+                }
+            }
+
+            // Remove previous updates before re-registering
+            try {
+                lm.removeUpdates(this)
+            } catch (ignored: Exception) {}
+            isListening = false
+
+            // Register continuous live updates with minDistance = 0f (updates even while stationary)
             if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                lm.requestLocationUpdates(
-                    LocationManager.GPS_PROVIDER,
-                    3000L,
-                    5f,
-                    this,
-                    Looper.getMainLooper()
-                )
-                isListening = true
+                try {
+                    lm.requestLocationUpdates(
+                        LocationManager.GPS_PROVIDER,
+                        1000L,
+                        0f,
+                        this,
+                        Looper.getMainLooper()
+                    )
+                    isListening = true
+                } catch (ignored: Exception) {}
             }
 
             if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                lm.requestLocationUpdates(
-                    LocationManager.NETWORK_PROVIDER,
-                    3000L,
-                    5f,
-                    this,
-                    Looper.getMainLooper()
-                )
-                isListening = true
+                try {
+                    lm.requestLocationUpdates(
+                        LocationManager.NETWORK_PROVIDER,
+                        1000L,
+                        0f,
+                        this,
+                        Looper.getMainLooper()
+                    )
+                    isListening = true
+                } catch (ignored: Exception) {}
+            }
+
+            if (lm.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
+                try {
+                    lm.requestLocationUpdates(
+                        LocationManager.PASSIVE_PROVIDER,
+                        1000L,
+                        0f,
+                        this,
+                        Looper.getMainLooper()
+                    )
+                    isListening = true
+                } catch (ignored: Exception) {}
             }
         } catch (e: Exception) {
             // Permission or hardware exception handled safely
