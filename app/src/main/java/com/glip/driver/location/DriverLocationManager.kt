@@ -75,6 +75,30 @@ class DriverLocationManager(private val context: Context) : LocationListener {
     }
 
     @SuppressLint("MissingPermission")
+    fun getBestLastKnownLocation(): Location? {
+        val lm = locationManager ?: return _currentLocation.value
+        if (!hasLocationPermission(context)) return _currentLocation.value
+        try {
+            var best: Location? = _currentLocation.value
+            val providers = lm.getProviders(true)
+            for (p in providers) {
+                try {
+                    val loc = lm.getLastKnownLocation(p)
+                    if (loc != null && (best == null || loc.time > best.time)) {
+                        best = loc
+                    }
+                } catch (ignored: Exception) {}
+            }
+            if (best != null) {
+                _currentLocation.value = best
+            }
+            return best
+        } catch (e: Exception) {
+            return _currentLocation.value
+        }
+    }
+
+    @SuppressLint("MissingPermission")
     fun startTracking() {
         refreshGpsStatus()
         if (!hasLocationPermission(context)) {
