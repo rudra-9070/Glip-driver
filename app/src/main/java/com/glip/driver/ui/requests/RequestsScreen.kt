@@ -118,9 +118,7 @@ fun RequestsScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
-        GlipDemoBanner()
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         // Filter Chips Row
         Row(
@@ -164,14 +162,30 @@ fun RequestsScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE2E8F0)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DirectionsCar,
+                            contentDescription = null,
+                            tint = Color(0xFF64748B),
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
                     Text(
-                        text = "No Requests Found",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        text = "No Ride Requests Yet",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = GlipNavyPrimary)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "All requests have been reviewed or filter condition excluded them.",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
+                        text = "Real passenger ride requests along your route will appear here automatically.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B)),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
             }

@@ -27,7 +27,8 @@ data class DriverRoute(
     val originLat: Double = 28.6139,
     val originLng: Double = 77.2090,
     val destLat: Double = 28.5355,
-    val destLng: Double = 77.3910
+    val destLng: Double = 77.3910,
+    val isActive: Boolean = false
 ) {
     val fullStopSequence: List<String>
         get() = listOf(originName) + intermediateStops.sortedBy { it.orderIndex }.map { it.name } + listOf(destinationName)

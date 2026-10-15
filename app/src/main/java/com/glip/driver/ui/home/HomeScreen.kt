@@ -34,6 +34,9 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.material3.Divider
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,6 +49,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -158,89 +162,73 @@ fun HomeScreen(
 
     ModalNavigationDrawer(
         drawerState = drawerState,
+        gesturesEnabled = false,
         drawerContent = {
             ModalDrawerSheet(
-                drawerContainerColor = GlipNavyPrimary,
-                drawerContentColor = Color.White,
+                drawerContainerColor = Color.White,
+                drawerContentColor = Color(0xFF0F172A),
                 modifier = Modifier.width(300.dp)
             ) {
-                // Drawer Profile Header
+                // Sleek Clean White Drawer Header
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(GlipNavyDark)
-                        .padding(20.dp)
+                        .background(Color(0xFFF8FAFC))
+                        .padding(horizontal = 20.dp, vertical = 24.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(54.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF1E293B)),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Driver Avatar",
-                            tint = GlipAccentTeal,
-                            modifier = Modifier.size(32.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(GlipNavyPrimary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DirectionsCar,
+                                contentDescription = "Glip Logo",
+                                tint = Color.White,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Glip Driver",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = GlipNavyPrimary
+                            )
+                            Text(
+                                text = "Driver Partner App",
+                                fontSize = 12.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = profile?.fullName ?: "Driver",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    )
-                    Text(
-                        text = profile?.maskedMobile ?: "Status: Active",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF94A3B8)
-                        )
-                    )
                 }
 
+                Divider(color = Color(0xFFE2E8F0), thickness = 1.dp)
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 1. Home
-                NavigationDrawerItem(
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Home,
-                            contentDescription = "Home",
-                            tint = GlipAccentTeal
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = "Home",
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    },
-                    selected = true,
-                    onClick = { coroutineScope.launch { drawerState.close() } },
-                    colors = NavigationDrawerItemDefaults.colors(
-                        selectedContainerColor = GlipNavyDark,
-                        unselectedContainerColor = Color.Transparent
-                    ),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
-                )
-
-                // 2. Profile
+                // 1. Profile Tab (Top Tab in Drawer)
                 NavigationDrawerItem(
                     icon = {
                         Icon(
                             imageVector = Icons.Default.AccountCircle,
                             contentDescription = "Profile",
-                            tint = Color(0xFFCBD5E1)
+                            tint = GlipNavyPrimary,
+                            modifier = Modifier.size(24.dp)
                         )
                     },
                     label = {
                         Text(
                             text = "Profile",
-                            color = Color(0xFFE2E8F0)
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF0F172A),
+                            fontSize = 15.sp
                         )
                     },
                     selected = false,
@@ -251,22 +239,25 @@ fun HomeScreen(
                     colors = NavigationDrawerItemDefaults.colors(
                         unselectedContainerColor = Color.Transparent
                     ),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
 
-                // 3. Activity
+                // 2. Activity Tab
                 NavigationDrawerItem(
                     icon = {
                         Icon(
                             imageVector = Icons.Default.FormatListBulleted,
                             contentDescription = "Activity",
-                            tint = Color(0xFFCBD5E1)
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(24.dp)
                         )
                     },
                     label = {
                         Text(
                             text = "Activity",
-                            color = Color(0xFFE2E8F0)
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF0F172A),
+                            fontSize = 15.sp
                         )
                     },
                     selected = false,
@@ -277,16 +268,17 @@ fun HomeScreen(
                     colors = NavigationDrawerItemDefaults.colors(
                         unselectedContainerColor = Color.Transparent
                     ),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
 
-                // 4. Requests
+                // 3. Requests Tab
                 NavigationDrawerItem(
                     icon = {
                         Icon(
                             imageVector = Icons.Default.DirectionsCar,
                             contentDescription = "Requests",
-                            tint = Color(0xFFCBD5E1)
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(24.dp)
                         )
                     },
                     label = {
@@ -297,7 +289,9 @@ fun HomeScreen(
                         ) {
                             Text(
                                 text = "Requests",
-                                color = Color(0xFFE2E8F0)
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF0F172A),
+                                fontSize = 15.sp
                             )
                             if (requests.isNotEmpty()) {
                                 Surface(
@@ -309,7 +303,7 @@ fun HomeScreen(
                                         color = Color.White,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                     )
                                 }
                             }
@@ -323,7 +317,7 @@ fun HomeScreen(
                     colors = NavigationDrawerItemDefaults.colors(
                         unselectedContainerColor = Color.Transparent
                     ),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -362,101 +356,130 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(Color(0xFFF8FAFC))
         ) {
-            // Compact, Slim Top Header Bar: Menu | Online/Offline Toggle | Route Setup in ONE Card
+            // Top Hero Header Bar Box: 60dp Height, Premium Sleek Layout
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 3.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
-                        .padding(horizontal = 6.dp),
+                        .height(60.dp)
+                        .padding(horizontal = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. Hamburger Menu Button
+                    // 1. Hamburger Menu Button (Only this opens the drawer)
                     IconButton(
                         onClick = { coroutineScope.launch { drawerState.open() } },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "Menu Bar",
                             tint = GlipNavyPrimary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 
-                    // 2. Online / Offline Availability Toggle Button (Real Toggle Switch UI)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isAvailable) Color(0xFFDCFCE7) else Color(0xFFF1F5F9))
-                            .border(
-                                1.dp,
-                                if (isAvailable) Color(0xFF86EFAC) else Color(0xFFCBD5E1),
-                                RoundedCornerShape(16.dp)
-                            )
-                            .clickable {
-                                coroutineScope.launch {
-                                    repository.setAvailable(!isAvailable)
-                                }
+                    // 2. Premium Custom Online / Offline Toggle Button
+                    val isOnline = isAvailable
+                    val toggleBgColor by animateColorAsState(
+                        targetValue = if (isOnline) Color(0xFF16A34A) else Color(0xFFF1F5F9),
+                        label = "toggleBg"
+                    )
+                    val toggleBorderColor by animateColorAsState(
+                        targetValue = if (isOnline) Color(0xFF15803D) else Color(0xFFCBD5E1),
+                        label = "toggleBorder"
+                    )
+                    val toggleTextColor by animateColorAsState(
+                        targetValue = if (isOnline) Color.White else Color(0xFF64748B),
+                        label = "toggleText"
+                    )
+
+                    Surface(
+                        onClick = {
+                            coroutineScope.launch {
+                                repository.setAvailable(!isOnline)
                             }
-                            .padding(start = 8.dp, end = 2.dp, top = 1.dp, bottom = 1.dp)
+                        },
+                        shape = RoundedCornerShape(22.dp),
+                        color = toggleBgColor,
+                        border = BorderStroke(1.dp, toggleBorderColor),
+                        modifier = Modifier
+                            .width(132.dp)
+                            .height(40.dp)
                     ) {
-                        Text(
-                            text = if (isAvailable) "ONLINE" else "OFFLINE",
-                            color = if (isAvailable) Color(0xFF15803D) else Color(0xFF64748B),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Switch(
-                            checked = isAvailable,
-                            onCheckedChange = { checked ->
-                                coroutineScope.launch { repository.setAvailable(checked) }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = Color(0xFF10B981),
-                                checkedBorderColor = Color(0xFF10B981),
-                                uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = Color(0xFF94A3B8),
-                                uncheckedBorderColor = Color(0xFF94A3B8)
-                            ),
-                            modifier = Modifier.scale(0.7f)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Text Label on appropriate side
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp),
+                                horizontalArrangement = if (isOnline) Arrangement.Start else Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isOnline) "ONLINE" else "OFFLINE",
+                                    color = toggleTextColor,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+
+                            // Sliding Circular Thumb with Shadow
+                            Box(
+                                modifier = Modifier
+                                    .align(if (isOnline) Alignment.CenterEnd else Alignment.CenterStart)
+                                    .size(30.dp)
+                                    .shadow(elevation = 3.dp, shape = CircleShape)
+                                    .clip(CircleShape)
+                                    .background(Color.White),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isOnline) Color(0xFF16A34A) else Color(0xFF94A3B8))
+                                )
+                            }
+                        }
                     }
 
                     // 3. Planned Route Setup Button
                     Surface(
                         onClick = onEditRoute,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         color = Color(0xFFF0F9FF),
-                        border = BorderStroke(1.dp, Color(0xFFBAE6FD))
+                        border = BorderStroke(1.dp, Color(0xFFBAE6FD)),
+                        modifier = Modifier.height(40.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AltRoute,
                                 contentDescription = "Planned Route Setup",
                                 tint = Color(0xFF0284C7),
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(17.dp)
                             )
-                            Spacer(modifier = Modifier.width(3.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = "Route",
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0284C7)
                             )
@@ -597,8 +620,7 @@ fun HomeScreen(
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            val availSeats = vehicle?.availableSeats ?: 2
-                            val occupied = vehicle?.occupiedSeats ?: 1
+                            val availSeats = vehicle?.availableSeats ?: 3
                             Text(
                                 text = "$availSeats Seat(s) Available",
                                 fontSize = 13.sp,
@@ -606,7 +628,7 @@ fun HomeScreen(
                                 color = Color(0xFF0F172A)
                             )
                             Text(
-                                text = "$occupied occupied • ${vehicle?.displayName ?: "Auto"}",
+                                text = vehicle?.displayName ?: "Vehicle Active",
                                 fontSize = 11.sp,
                                 color = Color(0xFF64748B)
                             )
@@ -617,8 +639,8 @@ fun HomeScreen(
                     Surface(
                         onClick = onViewAllRequests,
                         shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFFF0FDF4),
-                        border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                        color = if (requests.isNotEmpty()) Color(0xFFF0FDF4) else Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, if (requests.isNotEmpty()) Color(0xFFBBF7D0) else Color(0xFFE2E8F0))
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
@@ -627,7 +649,7 @@ fun HomeScreen(
                             Icon(
                                 imageVector = Icons.Default.People,
                                 contentDescription = "Requests",
-                                tint = Color(0xFF16A34A),
+                                tint = if (requests.isNotEmpty()) Color(0xFF16A34A) else Color(0xFF64748B),
                                 modifier = Modifier.size(15.dp)
                             )
                             Spacer(modifier = Modifier.width(5.dp))
@@ -635,7 +657,7 @@ fun HomeScreen(
                                 text = "Requests (${requests.size})",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF16A34A)
+                                color = if (requests.isNotEmpty()) Color(0xFF16A34A) else Color(0xFF64748B)
                             )
                         }
                     }

@@ -140,8 +140,11 @@ fun GlipOsmMapView(
     var casingLineRef by remember { mutableStateOf<Polyline?>(null) }
     var coreLineRef by remember { mutableStateOf<Polyline?>(null) }
     var driverPuckRef by remember { mutableStateOf<Marker?>(null) }
+    var originMarkerRef by remember { mutableStateOf<Marker?>(null) }
+    var destMarkerRef by remember { mutableStateOf<Marker?>(null) }
 
     val corridor = remember(route) { resolveCorridorPoints(route) }
+    val isRouteActive = route != null && route.isActive && route.destinationName.isNotBlank()
 
     // Live driver position from real device GPS, fallback to corridor start
     val driverGeoPoint = remember(driverLiveLocation, corridor.originPoint) {
@@ -152,23 +155,27 @@ fun GlipOsmMapView(
         }
     }
 
-    // Determine smart destination: if driver is in a different city from default seed data, adapt locally
-    val effectiveDestPoint = remember(driverGeoPoint, corridor.destinationPoint) {
-        val distArray = FloatArray(1)
-        Location.distanceBetween(
-            driverGeoPoint.latitude, driverGeoPoint.longitude,
-            corridor.destinationPoint.latitude, corridor.destinationPoint.longitude,
-            distArray
-        )
-        if (distArray[0] > 120_000f) {
-            // Rajnandgaon to Dongargarh (Rajnandgaon - Dongargarh Rd corridor from screenshot)
-            if (driverGeoPoint.latitude in 20.8..21.3 && driverGeoPoint.longitude in 80.5..81.3) {
-                GeoPoint(21.1873, 80.7618)
-            } else {
-                GeoPoint(driverGeoPoint.latitude + 0.08, driverGeoPoint.longitude - 0.10)
-            }
-        } else {
+    // Determine smart destination when route is active
+    val effectiveDestPoint = remember(driverGeoPoint, corridor.destinationPoint, isRouteActive) {
+        if (!isRouteActive) {
             corridor.destinationPoint
+        } else {
+            val distArray = FloatArray(1)
+            Location.distanceBetween(
+                driverGeoPoint.latitude, driverGeoPoint.longitude,
+                corridor.destinationPoint.latitude, corridor.destinationPoint.longitude,
+                distArray
+            )
+            if (distArray[0] > 120_000f) {
+                // Rajnandgaon to Dongargarh (Rajnandgaon - Dongargarh Rd corridor)
+                if (driverGeoPoint.latitude in 20.8..21.3 && driverGeoPoint.longitude in 80.5..81.3) {
+                    GeoPoint(21.1873, 80.7618)
+                } else {
+                    GeoPoint(driverGeoPoint.latitude + 0.08, driverGeoPoint.longitude - 0.10)
+                }
+            } else {
+                corridor.destinationPoint
+            }
         }
     }
 
@@ -196,28 +203,45 @@ fun GlipOsmMapView(
         }
     }
 
-    // Fetch turn-by-turn road geometry asynchronously via Free High-Speed OSRM
-    LaunchedEffect(driverGeoPoint.latitude, driverGeoPoint.longitude, effectiveDestPoint.latitude, effectiveDestPoint.longitude) {
-        val roadResult = OsrmRoutingHelper.fetchRoadRoute(
-            originLat = driverGeoPoint.latitude,
-            originLng = driverGeoPoint.longitude,
-            destLat = effectiveDestPoint.latitude,
-            destLng = effectiveDestPoint.longitude
-        )
+    // Fetch turn-by-turn road geometry ONLY when driver explicitly activates a route
+    LaunchedEffect(isRouteActive, driverGeoPoint.latitude, driverGeoPoint.longitude, effectiveDestPoint.latitude, effectiveDestPoint.longitude) {
+        if (isRouteActive) {
+            originMarkerRef?.isEnabled = true
+            destMarkerRef?.isEnabled = true
+            destMarkerRef?.position = effectiveDestPoint
 
-        if (roadResult != null && roadResult.points.isNotEmpty()) {
-            casingLineRef?.setPoints(roadResult.points)
-            coreLineRef?.setPoints(roadResult.points)
+            val roadResult = OsrmRoutingHelper.fetchRoadRoute(
+                originLat = driverGeoPoint.latitude,
+                originLng = driverGeoPoint.longitude,
+                destLat = effectiveDestPoint.latitude,
+                destLng = effectiveDestPoint.longitude
+            )
 
-            mapViewRef?.let { mv ->
-                try {
-                    val bbox = BoundingBox.fromGeoPoints(roadResult.points)
-                    mv.zoomToBoundingBox(bbox, true, 80)
-                } catch (e: Exception) {
-                    mv.controller.animateTo(driverGeoPoint)
+            if (roadResult != null && roadResult.points.isNotEmpty()) {
+                casingLineRef?.setPoints(roadResult.points)
+                coreLineRef?.setPoints(roadResult.points)
+
+                mapViewRef?.let { mv ->
+                    try {
+                        val bbox = BoundingBox.fromGeoPoints(roadResult.points)
+                        mv.zoomToBoundingBox(bbox, true, 80)
+                    } catch (e: Exception) {
+                        mv.controller.animateTo(driverGeoPoint)
+                    }
+                    mv.invalidate()
                 }
-                mv.invalidate()
             }
+        } else {
+            // Remove demo polyline when no route is active
+            casingLineRef?.setPoints(emptyList())
+            coreLineRef?.setPoints(emptyList())
+            originMarkerRef?.isEnabled = false
+            destMarkerRef?.isEnabled = false
+            mapViewRef?.controller?.apply {
+                setZoom(18.0)
+                setCenter(driverGeoPoint)
+            }
+            mapViewRef?.invalidate()
         }
     }
 
@@ -230,9 +254,17 @@ fun GlipOsmMapView(
                     setMultiTouchControls(true)
                     isTilesScaledToDpi = true
                     isFlingEnabled = true
+                    minZoomLevel = 4.0
+                    maxZoomLevel = 20.0
                     zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
-                    controller.setZoom(15.5)
+                    // Ensure touch pinch-to-zoom and pan events are not intercepted by parent views
+                    setOnTouchListener { v, _ ->
+                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                        false
+                    }
+
+                    controller.setZoom(18.0)
                     controller.setCenter(driverGeoPoint)
 
                     // Polyline: Solid Jet-Black road curve matching Screenshot 2
@@ -262,8 +294,10 @@ fun GlipOsmMapView(
                         icon = createPinMarkerDrawable(ctx, label = "A", pinColorHex = "#10B981")
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                         title = "Pickup / Start: ${corridor.originName}"
+                        isEnabled = isRouteActive
                     }
                     overlays.add(originMarker)
+                    originMarkerRef = originMarker
 
                     // Destination Pin (Red 'B' badge)
                     val destMarker = Marker(this).apply {
@@ -271,8 +305,10 @@ fun GlipOsmMapView(
                         icon = createPinMarkerDrawable(ctx, label = "B", pinColorHex = "#EF4444")
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                         title = "Drop / End: ${corridor.destinationName}"
+                        isEnabled = isRouteActive
                     }
                     overlays.add(destMarker)
+                    destMarkerRef = destMarker
 
                     // Driver Location Puck (Navigation icon)
                     val driverPuck = Marker(this).apply {
@@ -303,7 +339,7 @@ fun GlipOsmMapView(
 
                     post {
                         controller.setCenter(driverGeoPoint)
-                        controller.setZoom(15.5)
+                        controller.setZoom(18.0)
                     }
 
                     mapViewRef = this
@@ -315,7 +351,10 @@ fun GlipOsmMapView(
         // Recenter to Driver Location FAB (Right Hand / Thumb-Friendly for Drivers)
         FloatingActionButton(
             onClick = {
-                mapViewRef?.controller?.animateTo(driverGeoPoint)
+                mapViewRef?.controller?.apply {
+                    setZoom(18.0)
+                    animateTo(driverGeoPoint)
+                }
             },
             modifier = Modifier
                 .align(Alignment.TopEnd)

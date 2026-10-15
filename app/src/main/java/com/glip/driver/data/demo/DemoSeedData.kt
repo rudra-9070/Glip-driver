@@ -28,7 +28,7 @@ object DemoSeedData {
         category = VehicleCategory.AUTO_RICKSHAW,
         registrationNumberDisplay = "DL-01-DEMO-2024",
         totalCapacity = 3,
-        occupiedSeats = 1
+        occupiedSeats = 0
     )
 
     fun defaultRoute(): DriverRoute = DriverRoute(
@@ -45,7 +45,8 @@ object DemoSeedData {
         originLat = 28.6315,
         originLng = 77.2167,
         destLat = 28.5708,
-        destLng = 77.3261
+        destLng = 77.3261,
+        isActive = false
     )
 
     val sampleRawRequests: List<RawDemoRequest> = listOf(

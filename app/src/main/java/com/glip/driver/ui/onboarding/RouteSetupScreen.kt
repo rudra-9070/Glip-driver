@@ -1,6 +1,7 @@
 package com.glip.driver.ui.onboarding
 
 import android.content.Context
+import android.location.Geocoder
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -9,9 +10,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,15 +24,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Train
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -40,7 +43,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,24 +59,31 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.glip.driver.domain.model.DriverRoute
 import com.glip.driver.domain.repository.DriverRepository
-import com.glip.driver.domain.usecase.InputValidationUtil
 import com.glip.driver.map.RouteCoordinateResolver
 import com.glip.driver.ui.components.GlipPrimaryButton
-import com.glip.driver.ui.theme.GlipAccentTeal
 import com.glip.driver.ui.theme.GlipErrorRed
-import com.glip.driver.ui.theme.GlipNavyDark
 import com.glip.driver.ui.theme.GlipNavyPrimary
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
+import org.osmdroid.views.MapView
+import java.util.Locale
 
-data class FavoriteRoutePreset(
+data class SavedDestinationItem(
     val id: String,
     val title: String,
-    val iconCategory: String, // HOME, BUS, TRAIN, CAR
-    val origin: String,
-    val destination: String,
-    val departureTime: String,
+    val address: String,
+    val iconCategory: String, // "HOME", "BUS", "CAR"
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
     val isDeletable: Boolean = false
 )
 
@@ -89,53 +98,37 @@ fun RouteSetupScreen(
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    var origin by remember(currentRoute) {
-        mutableStateOf(currentRoute?.originName ?: "Motipur")
-    }
     var destination by remember(currentRoute) {
-        mutableStateOf(currentRoute?.destinationName ?: "Baruraj")
+        mutableStateOf(currentRoute?.destinationName ?: "")
     }
-    var departureTime by remember(currentRoute) {
-        mutableStateOf(currentRoute?.departureTimeDisplay ?: "08:30 AM")
+    var destLat by remember(currentRoute) {
+        mutableStateOf(currentRoute?.destLat ?: 0.0)
     }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var showAddFavoriteDialog by remember { mutableStateOf(false) }
-    var customFavoriteName by remember { mutableStateOf("") }
+    var destLng by remember(currentRoute) {
+        mutableStateOf(currentRoute?.destLng ?: 0.0)
+    }
 
-    // Persistent Favorite Corridors (Destination Mode)
-    val favoriteRoutes = remember {
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showMapPicker by remember { mutableStateOf(false) }
+
+    // Saved Destinations with On/Off Toggle
+    val savedDestinations = remember {
         mutableStateListOf(
-            FavoriteRoutePreset(
+            SavedDestinationItem(
                 id = "fav_home",
-                title = "Home (Ghar Wapsi)",
+                title = "Home",
+                address = "Home (Ghar Wapsi)",
                 iconCategory = "HOME",
-                origin = "Motipur Chowk",
-                destination = "Baruraj Home",
-                departureTime = "06:30 PM"
+                lat = 21.1873,
+                lng = 80.7618
             ),
-            FavoriteRoutePreset(
+            SavedDestinationItem(
                 id = "fav_bus",
-                title = "Bus Stand Express",
+                title = "Bus Stand",
+                address = "City Bus Stand",
                 iconCategory = "BUS",
-                origin = "Motipur",
-                destination = "Muzaffarpur Bairia Bus Stand",
-                departureTime = "08:30 AM"
-            ),
-            FavoriteRoutePreset(
-                id = "fav_train",
-                title = "Railway Station Route",
-                iconCategory = "TRAIN",
-                origin = "Baruraj",
-                destination = "Motipur Railway Station",
-                departureTime = "09:15 AM"
-            ),
-            FavoriteRoutePreset(
-                id = "fav_daily",
-                title = "Daily Commute",
-                iconCategory = "CAR",
-                origin = "Motipur Main Road",
-                destination = "Baruraj Chowk",
-                departureTime = "10:00 AM"
+                lat = 21.0974,
+                lng = 81.0336
             )
         )
     }
@@ -147,7 +140,7 @@ fun RouteSetupScreen(
             .padding(horizontal = 20.dp, vertical = 14.dp)
             .verticalScroll(scrollState)
     ) {
-        // Top Header with Back Action
+        // Top Header with Back Action (Only "Set Your Route", no extra text)
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -160,67 +153,60 @@ fun RouteSetupScreen(
                 )
             }
             Spacer(modifier = Modifier.width(6.dp))
-            Column {
-                Text(
-                    text = "Set Your Route",
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = GlipNavyPrimary
-                    )
+            Text(
+                text = "Set Your Route",
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = GlipNavyPrimary
                 )
-                Text(
-                    text = "Define your planned journey corridor",
-                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
-                )
-            }
+            )
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // 1. Starting Point Input Box
-        OutlinedTextField(
-            value = origin,
-            onValueChange = {
-                origin = it
-                errorMessage = null
-            },
-            label = { Text("Starting Point") },
-            placeholder = { Text("e.g. Motipur") },
-            leadingIcon = {
-                Icon(Icons.Default.Place, contentDescription = null, tint = Color(0xFF10B981))
-            },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // 2. Final Destination Input Box
+        // Single Final Destination Input Box named "Go To Destination" with manual typing & Map button
         OutlinedTextField(
             value = destination,
             onValueChange = {
                 destination = it
                 errorMessage = null
             },
-            label = { Text("Final Destination") },
-            placeholder = { Text("e.g. Baruraj") },
+            label = { Text("Go To Destination") },
+            placeholder = { Text("Type address or tap map") },
             leadingIcon = {
-                Icon(Icons.Default.Place, contentDescription = null, tint = Color(0xFFEF4444))
+                Icon(
+                    imageVector = Icons.Default.Place,
+                    contentDescription = null,
+                    tint = Color(0xFFEF4444)
+                )
             },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // 3. Approximate Departure Time Input Box
-        OutlinedTextField(
-            value = departureTime,
-            onValueChange = { departureTime = it },
-            label = { Text("Approximate Departure Time") },
-            placeholder = { Text("e.g. 08:30 AM") },
-            leadingIcon = {
-                Icon(Icons.Default.Schedule, contentDescription = null, tint = GlipNavyPrimary)
+            trailingIcon = {
+                Surface(
+                    onClick = { showMapPicker = true },
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFEFF6FF),
+                    border = BorderStroke(1.dp, Color(0xFFBAE6FD)),
+                    modifier = Modifier.padding(end = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Map,
+                            contentDescription = "Pick on Map",
+                            tint = Color(0xFF0284C7),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Map",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0284C7)
+                        )
+                    }
+                }
             },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
@@ -244,88 +230,78 @@ fun RouteSetupScreen(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // 4. Save Button
+        // Save Route Button
         GlipPrimaryButton(
             text = "Save Route",
             onClick = {
-                val validation = InputValidationUtil.validateRoute(origin, destination)
-                if (!validation.isValid) {
-                    errorMessage = validation.errorMessage
+                val destText = destination.trim()
+                if (destText.isBlank()) {
+                    errorMessage = "Please enter or pick a destination."
                     return@GlipPrimaryButton
                 }
 
                 coroutineScope.launch {
-                    val (oLat, oLng) = RouteCoordinateResolver.resolveCoordinates(origin)
-                    val (dLat, dLng) = RouteCoordinateResolver.resolveCoordinates(destination)
+                    val (resolvedLat, resolvedLng) = if (destLat != 0.0 && destLng != 0.0) {
+                        Pair(destLat, destLng)
+                    } else {
+                        RouteCoordinateResolver.resolveCoordinates(destText)
+                    }
+
+                    // Check if already in saved destinations list; if not, add it
+                    val existingIndex = savedDestinations.indexOfFirst {
+                        it.title.equals(destText, ignoreCase = true) || it.address.equals(destText, ignoreCase = true)
+                    }
+                    if (existingIndex < 0) {
+                        savedDestinations.add(
+                            SavedDestinationItem(
+                                id = "dest_${System.currentTimeMillis()}",
+                                title = destText,
+                                address = destText,
+                                iconCategory = "CAR",
+                                lat = resolvedLat,
+                                lng = resolvedLng,
+                                isDeletable = true
+                            )
+                        )
+                    }
 
                     val updated = DriverRoute(
                         id = currentRoute?.id ?: "rte_active_01",
-                        originName = origin.trim(),
-                        destinationName = destination.trim(),
-                        departureTimeDisplay = departureTime.trim(),
-                        originLat = oLat,
-                        originLng = oLng,
-                        destLat = dLat,
-                        destLng = dLng
+                        originName = "Current Location",
+                        destinationName = destText,
+                        destLat = resolvedLat,
+                        destLng = resolvedLng,
+                        isActive = true
                     )
                     repository.updateRoute(updated)
-                    Toast.makeText(context, "Route saved: ${origin.trim()} ➔ ${destination.trim()}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Route saved to $destText!", Toast.LENGTH_SHORT).show()
                     onSavedOrSkipped()
                 }
             }
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Save Current Route as Favorite Action
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            TextButton(
-                onClick = {
-                    customFavoriteName = "${origin.trim()} to ${destination.trim()}"
-                    showAddFavoriteDialog = true
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = "Save as Favorite",
-                    tint = Color(0xFFF59E0B),
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(5.dp))
-                Text(
-                    text = "Save as Favorite Route",
-                    color = Color(0xFF0284C7),
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // 5. Favorite & Quick Routes Section (Destination Mode)
+        // Saved Destinations with On/Off Toggle
         Text(
-            text = "Favorite & Quick Routes (Destination Mode)",
+            text = "Saved Destinations",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
                 color = GlipNavyPrimary
             )
         )
         Text(
-            text = "Turn ON a route to broadcast your journey corridor to co-passengers",
+            text = "Turn ON to broadcast your route to passengers along this way",
             style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B), fontSize = 12.sp)
         )
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // List of Favorite Routes with On/Off Toggle
-        favoriteRoutes.forEach { preset ->
+        savedDestinations.forEach { item ->
             val isActive = currentRoute != null &&
-                    currentRoute?.originName.equals(preset.origin, ignoreCase = true) &&
-                    currentRoute?.destinationName.equals(preset.destination, ignoreCase = true)
+                    currentRoute?.isActive == true &&
+                    (currentRoute?.destinationName.equals(item.title, ignoreCase = true) ||
+                            currentRoute?.destinationName.equals(item.address, ignoreCase = true))
 
             Card(
                 modifier = Modifier
@@ -360,10 +336,9 @@ fun RouteSetupScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = when (preset.iconCategory) {
+                                imageVector = when (item.iconCategory) {
                                     "HOME" -> Icons.Default.Home
                                     "BUS" -> Icons.Default.DirectionsBus
-                                    "TRAIN" -> Icons.Default.Train
                                     else -> Icons.Default.DirectionsCar
                                 },
                                 contentDescription = null,
@@ -377,7 +352,7 @@ fun RouteSetupScreen(
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = preset.title,
+                                    text = item.title,
                                     style = MaterialTheme.typography.titleSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = if (isActive) Color(0xFF15803D) else GlipNavyPrimary
@@ -400,16 +375,9 @@ fun RouteSetupScreen(
                                 }
                             }
                             Text(
-                                text = "${preset.origin} ➔ ${preset.destination}",
+                                text = item.address,
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF334155),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                            Text(
-                                text = "Departure: ${preset.departureTime}",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF94A3B8),
+                                    color = Color(0xFF64748B),
                                     fontSize = 11.sp
                                 )
                             )
@@ -422,46 +390,42 @@ fun RouteSetupScreen(
                             checked = isActive,
                             onCheckedChange = { enable ->
                                 if (enable) {
-                                    origin = preset.origin
-                                    destination = preset.destination
-                                    departureTime = preset.departureTime
+                                    destination = item.address
+                                    destLat = item.lat
+                                    destLng = item.lng
 
                                     coroutineScope.launch {
-                                        val (oLat, oLng) = RouteCoordinateResolver.resolveCoordinates(preset.origin)
-                                        val (dLat, dLng) = RouteCoordinateResolver.resolveCoordinates(preset.destination)
+                                        val (resolvedLat, resolvedLng) = if (item.lat != 0.0 && item.lng != 0.0) {
+                                            Pair(item.lat, item.lng)
+                                        } else {
+                                            RouteCoordinateResolver.resolveCoordinates(item.address)
+                                        }
 
                                         val updated = DriverRoute(
-                                            id = "rte_${preset.id}",
-                                            originName = preset.origin,
-                                            destinationName = preset.destination,
-                                            departureTimeDisplay = preset.departureTime,
-                                            originLat = oLat,
-                                            originLng = oLng,
-                                            destLat = dLat,
-                                            destLng = dLng
+                                            id = "rte_${item.id}",
+                                            originName = "Current Location",
+                                            destinationName = item.address,
+                                            destLat = resolvedLat,
+                                            destLng = resolvedLng,
+                                            isActive = true
                                         )
                                         repository.updateRoute(updated)
                                         Toast.makeText(
                                             context,
-                                            "${preset.title} activated! Co-passengers can now find your vehicle.",
+                                            "${item.title} activated! Co-passengers can now find your vehicle.",
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
                                 } else {
-                                    // Deactivate to default
+                                    // Deactivate route
                                     coroutineScope.launch {
-                                        val updated = DriverRoute(
-                                            id = "rte_standby",
-                                            originName = "Motipur",
-                                            destinationName = "Baruraj",
-                                            departureTimeDisplay = "08:30 AM",
-                                            originLat = 26.1739,
-                                            originLng = 85.1818,
-                                            destLat = 26.1465,
-                                            destLng = 85.0782
+                                        val updated = currentRoute?.copy(isActive = false) ?: DriverRoute(
+                                            originName = "Current Location",
+                                            destinationName = item.address,
+                                            isActive = false
                                         )
                                         repository.updateRoute(updated)
-                                        Toast.makeText(context, "${preset.title} deactivated.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "${item.title} deactivated.", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -473,8 +437,8 @@ fun RouteSetupScreen(
                             )
                         )
 
-                        if (preset.isDeletable) {
-                            IconButton(onClick = { favoriteRoutes.remove(preset) }) {
+                        if (item.isDeletable) {
+                            IconButton(onClick = { savedDestinations.remove(item) }) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Delete Route",
@@ -491,69 +455,263 @@ fun RouteSetupScreen(
         Spacer(modifier = Modifier.height(16.dp))
     }
 
-    // Add Custom Favorite Route Dialog
-    if (showAddFavoriteDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddFavoriteDialog = false },
-            title = {
-                Text(
-                    text = "Save as Favorite Route",
-                    fontWeight = FontWeight.Bold,
-                    color = GlipNavyPrimary
-                )
+    // Interactive Map Picker Dialog with Search Bar and Center Pin
+    if (showMapPicker) {
+        DestinationMapPickerDialog(
+            initialLat = if (destLat != 0.0) destLat else 21.0974,
+            initialLng = if (destLng != 0.0) destLng else 81.0336,
+            onLocationSelected = { pickedAddress, lat, lng ->
+                destination = pickedAddress
+                destLat = lat
+                destLng = lng
+                errorMessage = null
+                showMapPicker = false
             },
-            text = {
-                Column {
-                    Text(
-                        text = "Give this corridor a quick name (e.g. 'Ghar ka Route' or 'Market Special'):",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
+            onDismiss = { showMapPicker = false }
+        )
+    }
+}
+
+/**
+ * Interactive Dialog: Map with search bar, draggable center pin, and real-time location resolution.
+ */
+@Composable
+fun DestinationMapPickerDialog(
+    initialLat: Double,
+    initialLng: Double,
+    onLocationSelected: (address: String, lat: Double, lng: Double) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var searchQuery by remember { mutableStateOf("") }
+    var mapViewInstance by remember { mutableStateOf<MapView?>(null) }
+    var currentPickedAddress by remember { mutableStateOf("Move map to point destination") }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.90f)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header Bar: Title and Close button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Select Destination on Map",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = GlipNavyPrimary
+                        )
+                        Text(
+                            text = "Point crosshair pin to your target location",
+                            fontSize = 11.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color(0xFF64748B)
+                        )
+                    }
+                }
+
+                // Search Bar in Map
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     OutlinedTextField(
-                        value = customFavoriteName,
-                        onValueChange = { customFavoriteName = it },
-                        label = { Text("Route Label") },
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Search landmark, station, or city...", fontSize = 12.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = Color(0xFF64748B),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotBlank()) {
+                                IconButton(onClick = {
+                                    val query = searchQuery.trim()
+                                    coroutineScope.launch(Dispatchers.IO) {
+                                        try {
+                                            val geocoder = Geocoder(context, Locale.getDefault())
+                                            val results = geocoder.getFromLocationName(query, 1)
+                                            if (!results.isNullOrEmpty()) {
+                                                val found = results[0]
+                                                withContext(Dispatchers.Main) {
+                                                    val point = GeoPoint(found.latitude, found.longitude)
+                                                    mapViewInstance?.controller?.animateTo(point)
+                                                    currentPickedAddress = found.getAddressLine(0) ?: query
+                                                }
+                                            } else {
+                                                val (lat, lng) = RouteCoordinateResolver.resolveCoordinates(query)
+                                                withContext(Dispatchers.Main) {
+                                                    mapViewInstance?.controller?.animateTo(GeoPoint(lat, lng))
+                                                    currentPickedAddress = query
+                                                }
+                                            }
+                                        } catch (e: Exception) {
+                                            val (lat, lng) = RouteCoordinateResolver.resolveCoordinates(query)
+                                            withContext(Dispatchers.Main) {
+                                                mapViewInstance?.controller?.animateTo(GeoPoint(lat, lng))
+                                                currentPickedAddress = query
+                                            }
+                                        }
+                                    }
+                                }) {
+                                    Text("Go", fontWeight = FontWeight.Bold, color = Color(0xFF0284C7), fontSize = 12.sp)
+                                }
+                            }
+                        },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Path: ${origin.trim()} ➔ ${destination.trim()}",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = GlipNavyPrimary,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Map Canvas with Center Pin
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    AndroidView(
+                        factory = { ctx ->
+                            MapView(ctx).apply {
+                                setTileSource(TileSourceFactory.MAPNIK)
+                                setMultiTouchControls(true)
+                                isTilesScaledToDpi = true
+                                isFlingEnabled = true
+                                zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+
+                                controller.setZoom(17.0)
+                                val initialPoint = GeoPoint(initialLat, initialLng)
+                                controller.setCenter(initialPoint)
+
+                                // Prevent parent touch interception
+                                setOnTouchListener { v, _ ->
+                                    v.parent?.requestDisallowInterceptTouchEvent(true)
+                                    false
+                                }
+
+                                onResume()
+                                mapViewInstance = this
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    // Center Crosshair Pin
+                    Icon(
+                        imageVector = Icons.Default.Place,
+                        contentDescription = "Center Point Pin",
+                        tint = Color(0xFFEF4444),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(46.dp)
+                            .offset(y = (-23).dp)
+                    )
+
+                    // Center Pin Target Shadow Dot
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.5f))
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (customFavoriteName.isNotBlank() && origin.isNotBlank() && destination.isNotBlank()) {
-                            favoriteRoutes.add(
-                                FavoriteRoutePreset(
-                                    id = "fav_custom_${System.currentTimeMillis()}",
-                                    title = customFavoriteName.trim(),
-                                    iconCategory = "CAR",
-                                    origin = origin.trim(),
-                                    destination = destination.trim(),
-                                    departureTime = departureTime.trim(),
-                                    isDeletable = true
-                                )
-                            )
-                            Toast.makeText(context, "Favorite route added!", Toast.LENGTH_SHORT).show()
-                        }
-                        showAddFavoriteDialog = false
-                    }
+
+                // Bottom Action Bar: Confirm Location
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
-                    Text("Save", fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddFavoriteDialog = false }) {
-                    Text("Cancel")
+                    Column(
+                        modifier = Modifier.padding(12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Place,
+                                contentDescription = null,
+                                tint = Color(0xFF0284C7),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Selected Location",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = currentPickedAddress,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = GlipNavyPrimary,
+                            maxLines = 2
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        GlipPrimaryButton(
+                            text = "Confirm Destination",
+                            onClick = {
+                                val center = mapViewInstance?.mapCenter
+                                val lat = center?.latitude ?: initialLat
+                                val lng = center?.longitude ?: initialLng
+
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    var resolved = currentPickedAddress
+                                    try {
+                                        val geocoder = Geocoder(context, Locale.getDefault())
+                                        val addresses = geocoder.getFromLocation(lat, lng, 1)
+                                        if (!addresses.isNullOrEmpty()) {
+                                            resolved = addresses[0].locality ?: addresses[0].subLocality ?: addresses[0].featureName ?: addresses[0].getAddressLine(0) ?: "Destination (${String.format("%.4f, %.4f", lat, lng)})"
+                                        }
+                                    } catch (e: Exception) {
+                                        if (resolved.contains("Move map", ignoreCase = true)) {
+                                            resolved = "Destination (${String.format("%.4f, %.4f", lat, lng)})"
+                                        }
+                                    }
+
+                                    withContext(Dispatchers.Main) {
+                                        onLocationSelected(resolved, lat, lng)
+                                    }
+                                }
+                            }
+                        )
+                    }
                 }
             }
-        )
+        }
     }
 }

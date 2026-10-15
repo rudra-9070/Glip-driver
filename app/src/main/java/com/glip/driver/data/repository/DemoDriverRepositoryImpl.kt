@@ -46,30 +46,21 @@ class DemoDriverRepositoryImpl(
         val currentRoute = _routeFlow.value
         val currentVehicle = _vehicleFlow.value
 
-        val evaluated = DemoSeedData.sampleRawRequests.map { raw ->
-            val match = matchingEngine.evaluateMatch(
-                driverRoute = currentRoute,
-                vehicle = currentVehicle,
-                pickupName = raw.pickupName,
-                dropoffName = raw.dropoffName,
-                requestedSeats = raw.requestedSeats
-            )
-            PassengerRequest(
-                id = raw.id,
-                passengerAlias = raw.passengerAlias,
-                pickupName = raw.pickupName,
-                dropoffName = raw.dropoffName,
-                pickupLat = raw.pickupLat,
-                pickupLng = raw.pickupLng,
-                dropoffLat = raw.dropoffLat,
-                dropoffLng = raw.dropoffLng,
-                requestedSeats = raw.requestedSeats,
-                approximateTime = raw.approximateTime,
-                illustrativeFare = raw.illustrativeFare,
-                matchResult = match
-            )
+        // Recompute match evaluations for existing real requests only
+        val currentRequests = _requestsFlow.value
+        if (currentRequests.isNotEmpty()) {
+            val evaluated = currentRequests.map { req ->
+                val match = matchingEngine.evaluateMatch(
+                    driverRoute = currentRoute,
+                    vehicle = currentVehicle,
+                    pickupName = req.pickupName,
+                    dropoffName = req.dropoffName,
+                    requestedSeats = req.requestedSeats
+                )
+                req.copy(matchResult = match)
+            }
+            _requestsFlow.value = evaluated
         }
-        _requestsFlow.value = evaluated
     }
 
     override suspend fun getProfile(): DriverProfile? = _profileFlow.value
