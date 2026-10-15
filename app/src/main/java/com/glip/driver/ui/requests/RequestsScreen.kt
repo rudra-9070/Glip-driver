@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
@@ -28,6 +29,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -62,6 +64,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun RequestsScreen(
     repository: DriverRepository,
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val requests by repository.requestsFlow.collectAsState(initial = emptyList())
@@ -87,21 +90,36 @@ fun RequestsScreen(
             .background(Color(0xFFF8FAFC))
             .padding(16.dp)
     ) {
-        // Header
-        Text(
-            text = "Potential Passenger Requests",
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.Bold,
-                color = GlipNavyPrimary
-            )
-        )
-        Text(
-            text = "Simulated passengers seeking seats along your route corridor",
-            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
-        )
+        // Header with Back Button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = GlipNavyPrimary
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Column {
+                Text(
+                    text = "Passenger Requests",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = GlipNavyPrimary
+                    )
+                )
+                Text(
+                    text = "Passengers seeking seats along your route corridor",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(10.dp))
-        GlipDemoBanner(message = "Simulated matches. Accepting updates your demo seat count locally.")
+        GlipDemoBanner()
         Spacer(modifier = Modifier.height(10.dp))
 
         // Filter Chips Row
@@ -152,7 +170,7 @@ fun RequestsScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "All demo requests have been reviewed or filter condition excluded them.",
+                        text = "All requests have been reviewed or filter condition excluded them.",
                         style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
                     )
                 }
@@ -170,7 +188,7 @@ fun RequestsScreen(
                         onDecline = {
                             coroutineScope.launch {
                                 repository.declineRequest(request.id)
-                                actionMessage = "Request ${request.id} declined in demo activity."
+                                actionMessage = "Request ${request.id} declined."
                             }
                         }
                     )
@@ -186,19 +204,19 @@ fun RequestsScreen(
             onDismissRequest = { requestToConfirmAccept = null },
             title = {
                 Text(
-                    text = "Confirm Demo Seat Allocation?",
+                    text = "Confirm Seat Allocation?",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
             },
             text = {
                 Column {
-                    Text("Simulated Passenger: ${req.passengerAlias}")
+                    Text("Passenger: ${req.passengerAlias}")
                     Text("Pickup: ${req.pickupName}")
                     Text("Drop-off: ${req.dropoffName}")
                     Text("Seats: ${req.requestedSeats} seat(s)")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Note: This is a demo match. No real passenger will be alerted and no actual fare will be processed.",
+                        text = "Note: Reservation will be logged for this route corridor.",
                         style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
                     )
                 }
@@ -209,7 +227,7 @@ fun RequestsScreen(
                         coroutineScope.launch {
                             val result = repository.acceptRequest(req.id)
                             if (result.isSuccess) {
-                                actionMessage = "Demo match accepted! ${req.requestedSeats} seat(s) reserved."
+                                actionMessage = "Match accepted! ${req.requestedSeats} seat(s) reserved."
                             } else {
                                 actionMessage = result.exceptionOrNull()?.message ?: "Acceptance failed"
                             }
@@ -218,7 +236,7 @@ fun RequestsScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = GlipNavyPrimary)
                 ) {
-                    Text("Confirm Demo Match")
+                    Text("Confirm Match")
                 }
             },
             dismissButton = {
@@ -250,7 +268,7 @@ fun RequestsScreen(
                     if (detail.matchResult.estimatedDetourMinutes != null) {
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            "Illustrative Detour Estimate: ~${detail.matchResult.estimatedDetourMinutes} mins",
+                            "Estimated Detour: ~${detail.matchResult.estimatedDetourMinutes} mins",
                             color = GlipAccentTeal,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -325,7 +343,7 @@ private fun RequestCard(
                     }
                 }
                 Text(
-                    text = "₹${request.illustrativeFare} (Demo Fare)",
+                    text = "₹${request.illustrativeFare}",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = GlipNavyPrimary
@@ -413,7 +431,7 @@ private fun RequestCard(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = if (!isCapacityOk) "No Capacity" else "Accept Demo Match",
+                        text = if (!isCapacityOk) "No Capacity" else "Accept Match",
                         fontSize = 13.sp
                     )
                 }

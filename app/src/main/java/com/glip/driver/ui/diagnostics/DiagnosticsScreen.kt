@@ -282,8 +282,8 @@ fun DiagnosticsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    InfoRow(label = "Application", value = "Glip Driver MVP")
-                    InfoRow(label = "Version", value = "1.0.0-demo")
+                    InfoRow(label = "Application", value = "Glip Driver")
+                    InfoRow(label = "Version", value = "1.0.1")
                     InfoRow(label = "Package", value = context.packageName)
                     InfoRow(label = "Android SDK", value = "API ${android.os.Build.VERSION.SDK_INT} (${android.os.Build.VERSION.RELEASE})")
                     InfoRow(label = "Device", value = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")

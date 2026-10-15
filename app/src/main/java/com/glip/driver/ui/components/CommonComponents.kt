@@ -45,35 +45,9 @@ import com.glip.driver.ui.theme.GlipWarningAmber
 @Composable
 fun GlipDemoBanner(
     modifier: Modifier = Modifier,
-    message: String = "Demo MVP Mode — Simulated local driver data. No live passengers or real payments connected."
+    message: String = ""
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = Color(0xFFFEF3C7),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCD34D)),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = "Demo Notice",
-                tint = Color(0xFFB45309),
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF92400E),
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 12.sp
-                )
-            )
-        }
-    }
+    // Hidden - Demo banner removed per user request
 }
 
 @Composable

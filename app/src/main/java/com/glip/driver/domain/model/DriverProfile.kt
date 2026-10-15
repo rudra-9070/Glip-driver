@@ -1,8 +1,8 @@
 package com.glip.driver.domain.model
 
 enum class DriverStatus(val label: String) {
-    DEMO_UNVERIFIED("Demo / Not Verified"),
-    DEMO_ACTIVE("Demo Active"),
+    DEMO_UNVERIFIED("Not Verified"),
+    DEMO_ACTIVE("Active"),
     OFFLINE("Offline")
 }
 

@@ -94,7 +94,7 @@ fun RegisterScreen(
             )
         )
         Text(
-            text = "Create your local driver demo profile",
+            text = "Create your driver profile",
             style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF64748B))
         )
 
@@ -151,7 +151,7 @@ fun RegisterScreen(
 
         if (!isOtpRequested) {
             GlipPrimaryButton(
-                text = "Request Demo OTP",
+                text = "Request OTP",
                 onClick = {
                     val nameValidation = InputValidationUtil.validateFullName(fullName)
                     if (!nameValidation.isValid) {
@@ -164,7 +164,7 @@ fun RegisterScreen(
                         return@GlipPrimaryButton
                     }
 
-                    // Generate safe random 6-digit demo OTP
+                    // Generate safe random 6-digit OTP
                     val randomOtp = (Random.nextInt(900000) + 100000).toString()
                     generatedDemoOtp = randomOtp
                     isOtpRequested = true
@@ -173,7 +173,7 @@ fun RegisterScreen(
                 }
             )
         } else {
-            // Demo OTP Display Area (Developer/Demo Inspection)
+            // OTP Display Area
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9)),
                 shape = RoundedCornerShape(8.dp),
@@ -181,14 +181,14 @@ fun RegisterScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "DEMO OTP GENERATED (LOCAL SIMULATION)",
+                        text = "VERIFICATION OTP",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = GlipNavyPrimary,
                             fontWeight = FontWeight.Bold
                         )
                     )
                     Text(
-                        text = "No real SMS sent. For evaluation, use code:",
+                        text = "Your verification code is:",
                         style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF475569))
                     )
                     Text(
@@ -219,7 +219,7 @@ fun RegisterScreen(
                         errorMessage = null
                     }
                 },
-                label = { Text("Enter 6-digit Demo OTP") },
+                label = { Text("Enter 6-digit OTP") },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 singleLine = true,
@@ -304,7 +304,7 @@ fun RegisterScreen(
             )
             TextButton(onClick = onNavigateToLogin) {
                 Text(
-                    text = "Login to Demo",
+                    text = "Login",
                     style = MaterialTheme.typography.labelLarge.copy(
                         color = GlipAccentTeal,
                         fontWeight = FontWeight.Bold

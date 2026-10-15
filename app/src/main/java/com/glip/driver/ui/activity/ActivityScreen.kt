@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -24,6 +25,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -56,6 +58,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ActivityScreen(
     repository: DriverRepository,
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val trips by repository.tripsFlow.collectAsState(initial = emptyList())
@@ -76,21 +79,36 @@ fun ActivityScreen(
             .background(Color(0xFFF8FAFC))
             .padding(16.dp)
     ) {
-        // Header
-        Text(
-            text = "Driver Trip & Pool Activity",
-            style = MaterialTheme.typography.headlineSmall.copy(
-                fontWeight = FontWeight.Bold,
-                color = GlipNavyPrimary
-            )
-        )
-        Text(
-            text = "Audit log of accepted, declined, completed and cancelled requests",
-            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
-        )
+        // Header with Back Button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = GlipNavyPrimary
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Column {
+                Text(
+                    text = "Driver Activity",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = GlipNavyPrimary
+                    )
+                )
+                Text(
+                    text = "Log of accepted, completed and cancelled trips",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(10.dp))
-        GlipDemoBanner(message = "Simulated records. Fares shown are illustrative demo fares only.")
+        GlipDemoBanner()
         Spacer(modifier = Modifier.height(12.dp))
 
         // Filter Chips

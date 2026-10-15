@@ -86,7 +86,7 @@ fun LoginScreen(
             )
         )
         Text(
-            text = "Access your Glip Driver demo dashboard",
+            text = "Access your Glip Driver dashboard",
             style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF64748B))
         )
 
@@ -113,7 +113,7 @@ fun LoginScreen(
 
         if (!isOtpRequested) {
             GlipPrimaryButton(
-                text = "Get Demo Login OTP",
+                text = "Get Login OTP",
                 onClick = {
                     val mobileValidation = InputValidationUtil.validateMobileNumber(mobileNumber)
                     if (!mobileValidation.isValid) {
@@ -135,14 +135,14 @@ fun LoginScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "DEMO LOGIN OTP (LOCAL SIMULATION)",
+                        text = "VERIFICATION OTP",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = GlipNavyPrimary,
                             fontWeight = FontWeight.Bold
                         )
                     )
                     Text(
-                        text = "No real SMS sent. Verification code:",
+                        text = "Your verification code is:",
                         style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF475569))
                     )
                     Text(
@@ -173,7 +173,7 @@ fun LoginScreen(
                         errorMessage = null
                     }
                 },
-                label = { Text("Enter 6-digit Demo OTP") },
+                label = { Text("Enter 6-digit OTP") },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 singleLine = true,
@@ -196,7 +196,7 @@ fun LoginScreen(
                             val existing = repository.getProfile()
                             val profileToSave = existing?.copy(mobileNumber = mobileNumber)
                                 ?: DriverProfile(
-                                    fullName = "Demo Driver",
+                                    fullName = "Driver",
                                     mobileNumber = mobileNumber,
                                     status = DriverStatus.DEMO_ACTIVE
                                 )

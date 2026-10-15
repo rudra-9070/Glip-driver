@@ -104,7 +104,7 @@ fun VehicleSetupScreen(
                     )
                 )
                 Text(
-                    text = "Configure your demo vehicle & seats",
+                    text = "Configure your vehicle & seats",
                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
                 )
             }
@@ -273,7 +273,7 @@ fun VehicleSetupScreen(
                         id = currentVehicle?.id ?: "veh_demo_01",
                         displayName = displayName.trim().ifBlank { selectedCategory.displayName },
                         category = selectedCategory,
-                        registrationNumberDisplay = "DL-01-DEMO-99",
+                        registrationNumberDisplay = "DL-01-AB-1234",
                         totalCapacity = capacity,
                         occupiedSeats = occupied
                     )

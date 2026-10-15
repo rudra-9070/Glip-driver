@@ -137,7 +137,7 @@ fun WelcomeScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
             GlipSecondaryButton(
-                text = "I Already Have a Demo Account",
+                text = "I Already Have an Account",
                 onClick = onNavigateToLogin
             )
             Spacer(modifier = Modifier.height(10.dp))

@@ -28,11 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CropFree
-import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
@@ -57,7 +53,6 @@ import com.glip.driver.domain.model.DriverRoute
 import com.glip.driver.domain.model.PassengerRequest
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
@@ -65,31 +60,6 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.CopyrightOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
-
-/**
- * 100% Free & Open-Source OpenStreetMap Tile Source.
- * Powered by CartoDB Voyager under ODbL and CC-BY-4.0.
- * Delivers clean, modern, high-contrast street maps engineered for ride-hailing (Ola/Uber/Rapido look).
- */
-val CARTO_VOYAGER = XYTileSource(
-    "CartoVoyager",
-    0,
-    20,
-    256,
-    ".png",
-    arrayOf(
-        "https://a.basemaps.cartocdn.com/rastertiles/voyager/",
-        "https://b.basemaps.cartocdn.com/rastertiles/voyager/",
-        "https://c.basemaps.cartocdn.com/rastertiles/voyager/",
-        "https://d.basemaps.cartocdn.com/rastertiles/voyager/"
-    ),
-    "© OpenStreetMap contributors, © CARTO"
-)
-
-enum class MapStyleType(val label: String) {
-    VOYAGER_CLEAN("Clean Ride"),
-    OSM_DETAILED("Streets")
-}
 
 /**
  * Helper to resolve corridor coordinates whether in Motipur-Baruraj or Delhi or custom route.
@@ -148,8 +118,6 @@ fun GlipOsmMapView(
 ) {
     val context = LocalContext.current
     var mapViewRef by remember { mutableStateOf<MapView?>(null) }
-    var currentMapStyle by remember { mutableStateOf(MapStyleType.VOYAGER_CLEAN) }
-    var isStyleMenuOpen by remember { mutableStateOf(false) }
 
     val corridor = remember(route) { resolveCorridorPoints(route) }
 
@@ -171,7 +139,7 @@ fun GlipOsmMapView(
                 Configuration.getInstance().tileDownloadThreads = 4
 
                 MapView(ctx).apply {
-                    setTileSource(CARTO_VOYAGER)
+                    setTileSource(TileSourceFactory.MAPNIK)
                     setMultiTouchControls(true)
                     isTilesScaledToDpi = true
                     isFlingEnabled = true
@@ -283,128 +251,25 @@ fun GlipOsmMapView(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Floating Action Controls (Right Hand / Thumb-Friendly for Drivers)
-        Column(
+        // Recenter to Driver Location FAB (Right Hand / Thumb-Friendly for Drivers)
+        FloatingActionButton(
+            onClick = {
+                mapViewRef?.controller?.animateTo(corridor.originPoint)
+            },
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 12.dp, end = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.End
+                .padding(top = 12.dp, end = 12.dp)
+                .size(42.dp),
+            containerColor = Color.White,
+            shape = CircleShape,
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
         ) {
-            // 1. Recenter to Driver
-            FloatingActionButton(
-                onClick = {
-                    mapViewRef?.controller?.animateTo(corridor.originPoint)
-                },
-                modifier = Modifier.size(42.dp),
-                containerColor = Color.White,
-                shape = CircleShape,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MyLocation,
-                    contentDescription = "Recenter Map",
-                    tint = Color(0xFF0284C7),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            // 2. Fit Full Route Corridor Overview
-            FloatingActionButton(
-                onClick = {
-                    mapViewRef?.let { mv ->
-                        try {
-                            val bbox = BoundingBox.fromGeoPoints(corridor.allCorridorPoints)
-                            mv.zoomToBoundingBox(bbox, true, 80)
-                        } catch (_: Exception) {
-                            mv.controller.animateTo(corridor.originPoint)
-                        }
-                    }
-                },
-                modifier = Modifier.size(42.dp),
-                containerColor = Color.White,
-                shape = CircleShape,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CropFree,
-                    contentDescription = "Fit Corridor Route",
-                    tint = Color(0xFF0F172A),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            // 3. Zoom In (+)
-            FloatingActionButton(
-                onClick = { mapViewRef?.controller?.zoomIn() },
-                modifier = Modifier.size(42.dp),
-                containerColor = Color.White,
-                shape = CircleShape,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Zoom In",
-                    tint = Color(0xFF334155),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            // 4. Zoom Out (-)
-            FloatingActionButton(
-                onClick = { mapViewRef?.controller?.zoomOut() },
-                modifier = Modifier.size(42.dp),
-                containerColor = Color.White,
-                shape = CircleShape,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Remove,
-                    contentDescription = "Zoom Out",
-                    tint = Color(0xFF334155),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            // 5. Map Style Switcher (Clean Ride ↔ Streets)
-            Surface(
-                onClick = {
-                    val nextStyle = if (currentMapStyle == MapStyleType.VOYAGER_CLEAN) {
-                        MapStyleType.OSM_DETAILED
-                    } else {
-                        MapStyleType.VOYAGER_CLEAN
-                    }
-                    currentMapStyle = nextStyle
-                    mapViewRef?.let { mv ->
-                        mv.setTileSource(
-                            if (nextStyle == MapStyleType.VOYAGER_CLEAN) CARTO_VOYAGER else TileSourceFactory.MAPNIK
-                        )
-                        mv.invalidate()
-                    }
-                },
-                shape = RoundedCornerShape(20.dp),
-                color = Color.White,
-                shadowElevation = 3.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Layers,
-                        contentDescription = "Toggle Style",
-                        tint = Color(0xFF0284C7),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = currentMapStyle.label,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
-                    )
-                }
-            }
+            Icon(
+                imageVector = Icons.Default.MyLocation,
+                contentDescription = "Recenter Map",
+                tint = Color(0xFF0284C7),
+                modifier = Modifier.size(20.dp)
+            )
         }
 
         // Legal Compliance Attribution Pill (Free & Safe)
@@ -416,7 +281,7 @@ fun GlipOsmMapView(
             color = Color(0xCC0F172A)
         ) {
             Text(
-                text = "© OpenStreetMap contributors, CARTO",
+                text = "© OpenStreetMap contributors",
                 color = Color(0xFFE2E8F0),
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Medium,

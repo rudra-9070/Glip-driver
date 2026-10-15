@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Delete
@@ -32,6 +33,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -64,6 +66,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ProfileScreen(
     repository: DriverRepository,
+    onBack: () -> Unit = {},
     onEditVehicle: () -> Unit,
     onEditRoute: () -> Unit,
     onNavigateToParcel: () -> Unit,
@@ -90,6 +93,30 @@ fun ProfileScreen(
             .padding(16.dp)
             .verticalScroll(scrollState)
     ) {
+        // Back Button Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = GlipNavyPrimary
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Driver Profile",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = GlipNavyPrimary
+                )
+            )
+        }
+
         // Driver Identity Header Card
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -115,7 +142,7 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.width(14.dp))
                     Column {
                         Text(
-                            text = profile?.fullName ?: "Demo Driver",
+                            text = profile?.fullName ?: "Driver",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -145,7 +172,7 @@ fun ProfileScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Driver Status: ${profile?.status?.label ?: "Demo Active"}",
+                            text = "Driver Status: ${profile?.status?.label ?: "Active"}",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = Color(0xFFCBD5E1),
                                 fontWeight = FontWeight.Medium
@@ -237,7 +264,7 @@ fun ProfileScreen(
         ) {
             Icon(Icons.Default.ExitToApp, contentDescription = null, tint = GlipNavyPrimary)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Logout of Demo Session", color = GlipNavyPrimary)
+            Text("Logout", color = GlipNavyPrimary)
         }
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -248,13 +275,13 @@ fun ProfileScreen(
         ) {
             Icon(Icons.Default.Delete, contentDescription = null, tint = GlipErrorRed, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(6.dp))
-            Text("Reset & Clear All Demo Data", color = GlipErrorRed)
+            Text("Reset & Clear All Data", color = GlipErrorRed)
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "Glip Driver v1.0.0-demo • Built with Jetpack Compose & M3",
+            text = "Glip Driver v1.0.1 • Built with Jetpack Compose & M3",
             style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF94A3B8), fontSize = 11.sp),
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
@@ -270,9 +297,9 @@ fun ProfileScreen(
             text = {
                 Column {
                     Text(
-                        "1. Local Demo MVP Scope: This application operates entirely on local device simulation. No live geolocation tracking, background monitoring, or payment processing occurs.\n\n" +
+                        "1. Local Scope: This application operates on device simulation. No live geolocation tracking, background monitoring, or payment processing occurs.\n\n" +
                         "2. Driver Verification: Commercial carpooling, ride-sharing, or pooling in India is subject to state motor vehicle regulations, permits, and verification protocols. Live passenger onboarding requires verified commercial documentation.\n\n" +
-                        "3. Data Minimization: We collect only the demo profile name and mobile number locally. No SMS, contacts, or camera access is requested in this build.",
+                        "3. Data Minimization: We collect only the profile name and mobile number locally. No SMS, contacts, or camera access is requested in this build.",
                         style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp, color = Color(0xFF475569))
                     )
                 }
@@ -295,7 +322,7 @@ fun ProfileScreen(
                     "• Keep your availability set to 'Available'.\n" +
                     "• Review matched co-passengers travelling along the same route.\n" +
                     "• Accept requests within your available capacity to pool rides safely.\n\n" +
-                    "For assistance during the demo trial, contact support@glipgo.com",
+                    "For assistance, contact support@glipgo.com",
                     style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp, color = Color(0xFF475569))
                 )
             },
@@ -309,7 +336,7 @@ fun ProfileScreen(
     if (showClearDataConfirm) {
         AlertDialog(
             onDismissRequest = { showClearDataConfirm = false },
-            title = { Text("Clear All Demo Data?") },
+            title = { Text("Clear All Data?") },
             text = {
                 Text("This will wipe the current driver profile, reset vehicle seats, reseed route requests, and return to the welcome screen.")
             },
