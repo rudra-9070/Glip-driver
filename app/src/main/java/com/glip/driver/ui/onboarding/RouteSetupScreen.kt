@@ -580,7 +580,7 @@ fun DestinationMapPickerView(
                 if (result != null) {
                     val point = GeoPoint(result.latitude, result.longitude)
                     mapViewInstance?.controller?.apply {
-                        setZoom(18.5)
+                        setZoom(16.0)
                         animateTo(point)
                     }
                     currentPickedAddress = result.address
@@ -718,7 +718,7 @@ fun DestinationMapPickerView(
                             val centerLat = if (initialLat != 0.0) initialLat else 21.0974
                             val centerLng = if (initialLng != 0.0) initialLng else 81.0336
                             val initialPoint = GeoPoint(centerLat, centerLng)
-                            controller.setZoom(18.0)
+                            controller.setZoom(16.0)
                             controller.setCenter(initialPoint)
 
                             // Driver live vehicle marker
@@ -822,7 +822,7 @@ fun DestinationMapPickerView(
                         if (curLat != 0.0 && curLng != 0.0) {
                             val myPoint = GeoPoint(curLat, curLng)
                             mapViewInstance?.controller?.apply {
-                                setZoom(18.5)
+                                setZoom(16.0)
                                 animateTo(myPoint)
                             }
                             coroutineScope.launch {

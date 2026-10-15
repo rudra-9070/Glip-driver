@@ -12,7 +12,9 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,7 +23,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.animation.ValueAnimator
+import android.view.animation.DecelerateInterpolator
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -105,6 +110,23 @@ fun resolveCorridorPoints(route: DriverRoute?): ResolvedCorridor {
 }
 
 /**
+ * Calculates initial bearing from (startLat, startLng) to (endLat, endLng) in degrees [0, 360).
+ * 0° = North, 90° = East, 180° = South, 270° = West.
+ */
+fun calculateBearing(startLat: Double, startLng: Double, endLat: Double, endLng: Double): Float {
+    val lat1 = Math.toRadians(startLat)
+    val lng1 = Math.toRadians(startLng)
+    val lat2 = Math.toRadians(endLat)
+    val lng2 = Math.toRadians(endLng)
+
+    val dLng = lng2 - lng1
+    val y = Math.sin(dLng) * Math.cos(lat2)
+    val x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng)
+    val bearing = Math.toDegrees(Math.atan2(y, x)).toFloat()
+    return (bearing + 360f) % 360f
+}
+
+/**
  * Modern, High-Performance Native OpenStreetMap Component (Ola / Uber / Rapido Style).
  * - 100% Free & Legal: Powered by OpenStreetMap Mapnik tiles and free OSRM road geometry.
  * - Zero Google Maps API keys or subscriptions required.
@@ -172,15 +194,73 @@ fun GlipOsmMapView(
     }
 
     var hasCenteredOnDriver by remember { mutableStateOf(false) }
+    var lastAnimatedLat by remember { mutableStateOf(driverGeoPoint.latitude) }
+    var lastAnimatedLng by remember { mutableStateOf(driverGeoPoint.longitude) }
+    var currentBearing by remember { mutableStateOf(0f) }
+    var puckAnimator by remember { mutableStateOf<ValueAnimator?>(null) }
 
-    // Keep vehicle puck synced with live GPS movement and auto-center camera on driver
-    LaunchedEffect(driverGeoPoint, driverLiveLocation) {
-        driverPuckRef?.position = driverGeoPoint
+    // Keep vehicle puck synced with live GPS movement, calculate heading, animate smoothly, and auto-center
+    LaunchedEffect(driverGeoPoint, driverLiveLocation, effectiveDestPoint, isRouteActive) {
+        val targetBearing = when {
+            driverLiveLocation != null && driverLiveLocation.hasBearing() && driverLiveLocation.bearing != 0f -> {
+                driverLiveLocation.bearing
+            }
+            lastAnimatedLat != 0.0 && (Math.abs(driverGeoPoint.latitude - lastAnimatedLat) > 0.00002 || Math.abs(driverGeoPoint.longitude - lastAnimatedLng) > 0.00002) -> {
+                calculateBearing(lastAnimatedLat, lastAnimatedLng, driverGeoPoint.latitude, driverGeoPoint.longitude)
+            }
+            isRouteActive -> {
+                calculateBearing(driverGeoPoint.latitude, driverGeoPoint.longitude, effectiveDestPoint.latitude, effectiveDestPoint.longitude)
+            }
+            else -> currentBearing
+        }
+
+        val fromLat = lastAnimatedLat
+        val fromLng = lastAnimatedLng
+        val toLat = driverGeoPoint.latitude
+        val toLng = driverGeoPoint.longitude
+        val fromAngle = currentBearing
+
+        var deltaAngle = (targetBearing - fromAngle) % 360f
+        if (deltaAngle > 180f) deltaAngle -= 360f
+        if (deltaAngle < -180f) deltaAngle += 360f
+
+        puckAnimator?.cancel()
+
+        if (fromLat == 0.0 || (fromLat == toLat && fromLng == toLng)) {
+            driverPuckRef?.position = driverGeoPoint
+            driverPuckRef?.rotation = targetBearing
+            currentBearing = targetBearing
+            lastAnimatedLat = toLat
+            lastAnimatedLng = toLng
+        } else {
+            val anim = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 800L
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { va ->
+                    val frac = va.animatedFraction
+                    val interpLat = fromLat + (toLat - fromLat) * frac
+                    val interpLng = fromLng + (toLng - fromLng) * frac
+                    val interpAngle = (fromAngle + deltaAngle * frac + 360f) % 360f
+
+                    driverPuckRef?.let { puck ->
+                        puck.position = GeoPoint(interpLat, interpLng)
+                        puck.rotation = interpAngle
+                    }
+                    mapViewRef?.invalidate()
+                }
+            }
+            puckAnimator = anim
+            anim.start()
+            currentBearing = targetBearing
+            lastAnimatedLat = toLat
+            lastAnimatedLng = toLng
+        }
+
         if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0) {
             mapViewRef?.let { mv ->
                 if (!hasCenteredOnDriver) {
                     mv.controller.setCenter(driverGeoPoint)
-                    mv.controller.setZoom(18.5)
+                    mv.controller.setZoom(16.0)
                     hasCenteredOnDriver = true
                 } else {
                     mv.controller.animateTo(driverGeoPoint)
@@ -202,6 +282,7 @@ fun GlipOsmMapView(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
+            puckAnimator?.cancel()
             lifecycleOwner.lifecycle.removeObserver(observer)
             mapViewRef?.onPause()
             mapViewRef?.onDetach()
@@ -228,7 +309,7 @@ fun GlipOsmMapView(
 
                 mapViewRef?.let { mv ->
                     mv.controller.apply {
-                        setZoom(18.5)
+                        setZoom(16.0)
                         animateTo(driverGeoPoint)
                     }
                     mv.invalidate()
@@ -241,7 +322,7 @@ fun GlipOsmMapView(
             originMarkerRef?.isEnabled = false
             destMarkerRef?.isEnabled = false
             mapViewRef?.controller?.apply {
-                setZoom(18.5)
+                setZoom(16.0)
                 setCenter(driverGeoPoint)
             }
             mapViewRef?.invalidate()
@@ -267,7 +348,7 @@ fun GlipOsmMapView(
                         false
                     }
 
-                    controller.setZoom(18.5)
+                    controller.setZoom(16.0)
                     controller.setCenter(driverGeoPoint)
 
                     // Polyline: Solid Jet-Black road curve matching Screenshot 2
@@ -313,9 +394,10 @@ fun GlipOsmMapView(
                     overlays.add(destMarker)
                     destMarkerRef = destMarker
 
-                    // Driver Location Puck (Navigation icon)
+                    // Driver Location Puck (Navigation icon pointing in vehicle heading)
                     val driverPuck = Marker(this).apply {
                         position = driverGeoPoint
+                        rotation = currentBearing
                         icon = createDriverVehiclePuck(ctx)
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                         title = if (driverLiveLocation != null) "Your Vehicle (Live GPS)" else "Your Vehicle"
@@ -342,7 +424,7 @@ fun GlipOsmMapView(
 
                     post {
                         controller.setCenter(driverGeoPoint)
-                        controller.setZoom(18.5)
+                        controller.setZoom(16.0)
                     }
 
                     mapViewRef = this
@@ -351,28 +433,56 @@ fun GlipOsmMapView(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Recenter to Driver Location FAB (Right Hand / Thumb-Friendly for Drivers)
-        FloatingActionButton(
-            onClick = {
-                mapViewRef?.controller?.apply {
-                    setZoom(18.5)
-                    animateTo(driverGeoPoint)
-                }
-            },
+        // Floating Action Buttons (Top-End): Recenter to Driver + Route Overview
+        Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 10.dp, end = 10.dp)
-                .size(40.dp),
-            containerColor = Color.White,
-            shape = CircleShape,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
+                .padding(top = 10.dp, end = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.MyLocation,
-                contentDescription = "Recenter Map",
-                tint = Color(0xFF0284C7),
-                modifier = Modifier.size(18.dp)
-            )
+            FloatingActionButton(
+                onClick = {
+                    mapViewRef?.controller?.apply {
+                        setZoom(16.0)
+                        animateTo(driverGeoPoint)
+                    }
+                },
+                modifier = Modifier.size(40.dp),
+                containerColor = Color.White,
+                shape = CircleShape,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MyLocation,
+                    contentDescription = "Recenter Map",
+                    tint = Color(0xFF0284C7),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            if (isRouteActive) {
+                FloatingActionButton(
+                    onClick = {
+                        val minLat = minOf(driverGeoPoint.latitude, effectiveDestPoint.latitude)
+                        val maxLat = maxOf(driverGeoPoint.latitude, effectiveDestPoint.latitude)
+                        val minLng = minOf(driverGeoPoint.longitude, effectiveDestPoint.longitude)
+                        val maxLng = maxOf(driverGeoPoint.longitude, effectiveDestPoint.longitude)
+                        val box = BoundingBox(maxLat + 0.008, maxLng + 0.008, minLat - 0.008, minLng - 0.008)
+                        mapViewRef?.zoomToBoundingBox(box, true, 80)
+                    },
+                    modifier = Modifier.size(40.dp),
+                    containerColor = Color.White,
+                    shape = CircleShape,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AltRoute,
+                        contentDescription = "Fit Route Overview",
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
     }
 }
