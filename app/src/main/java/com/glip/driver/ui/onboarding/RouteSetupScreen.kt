@@ -67,13 +67,18 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import android.location.Location
 import com.glip.driver.domain.model.DriverRoute
 import com.glip.driver.domain.repository.DriverRepository
+import com.glip.driver.location.DriverLocationManager
+import com.glip.driver.map.createDriverVehiclePuck
+import org.osmdroid.views.overlay.Marker
 import com.glip.driver.map.OsmGeocoderHelper
 import com.glip.driver.map.RouteCoordinateResolver
 import com.glip.driver.ui.components.GlipPrimaryButton
@@ -127,6 +132,17 @@ fun RouteSetupScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showMapPicker by remember { mutableStateOf(false) }
 
+    val locationManager = remember { DriverLocationManager(context.applicationContext) }
+    val liveLocation by locationManager.currentLocation.collectAsState()
+    val isGpsEnabled by locationManager.isGpsEnabled.collectAsState()
+
+    LaunchedEffect(Unit) {
+        if (DriverLocationManager.hasLocationPermission(context)) {
+            locationManager.startTracking()
+            locationManager.refreshGpsStatus()
+        }
+    }
+
     // Saved Destinations with On/Off Toggle
     val savedDestinations = remember {
         mutableStateListOf(
@@ -149,14 +165,15 @@ fun RouteSetupScreen(
         )
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(horizontal = 20.dp, vertical = 14.dp)
-            .verticalScroll(scrollState)
-    ) {
-        // Top Header with Back Action (Only "Set Your Route", no extra text)
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(horizontal = 20.dp, vertical = 14.dp)
+                .verticalScroll(scrollState)
+        ) {
+            // Top Header with Back Action (Only "Set Your Route", no extra text)
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -474,40 +491,54 @@ fun RouteSetupScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-    }
+        }
 
-    // Interactive Map Picker Dialog with Search Bar and Center Pin
-    if (showMapPicker) {
-        DestinationMapPickerDialog(
-            initialLat = if (destLat != 0.0) destLat else 21.0974,
-            initialLng = if (destLng != 0.0) destLng else 81.0336,
-            onLocationSelected = { pickedAddress, lat, lng ->
-                destination = pickedAddress
-                destLat = lat
-                destLng = lng
-                errorMessage = null
-                showMapPicker = false
-            },
-            onDismiss = { showMapPicker = false }
-        )
+        // Full Screen Interactive Map Picker Overlay (Zero Dialog, No Window Panning/Jumping)
+        if (showMapPicker) {
+            val initialPickerLat = when {
+                destLat != 0.0 -> destLat
+                liveLocation != null && liveLocation!!.latitude != 0.0 -> liveLocation!!.latitude
+                else -> locationManager.getBestLastKnownLocation()?.latitude ?: 21.0974
+            }
+            val initialPickerLng = when {
+                destLng != 0.0 -> destLng
+                liveLocation != null && liveLocation!!.longitude != 0.0 -> liveLocation!!.longitude
+                else -> locationManager.getBestLastKnownLocation()?.longitude ?: 81.0336
+            }
+
+            DestinationMapPickerView(
+                driverLiveLocation = liveLocation,
+                locationManager = locationManager,
+                initialLat = initialPickerLat,
+                initialLng = initialPickerLng,
+                onLocationSelected = { pickedAddress, lat, lng ->
+                    destination = pickedAddress
+                    destLat = lat
+                    destLng = lng
+                    errorMessage = null
+                    showMapPicker = false
+                },
+                onDismiss = { showMapPicker = false }
+            )
+        }
     }
 }
 
 /**
- * Interactive Dialog: Map with search bar, draggable center pin, real-time location resolution,
- * and Current Location FAB (Blue button).
- */
-/**
- * Interactive Dialog: Full-screen Map with permanently locked top search bar, draggable center pin,
- * real-time location resolution, and Current Location FAB (Blue button).
+ * Interactive Full-screen Map Picker View with locked top search bar, live GPS driver tracking,
+ * center crosshair pin, real-time geocoding, and Blue Current Location FAB.
  */
 @Composable
-fun DestinationMapPickerDialog(
+fun DestinationMapPickerView(
+    driverLiveLocation: Location?,
+    locationManager: DriverLocationManager,
     initialLat: Double,
     initialLng: Double,
     onLocationSelected: (address: String, lat: Double, lng: Double) -> Unit,
     onDismiss: () -> Unit
 ) {
+    BackHandler(onBack = onDismiss)
+
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -549,7 +580,7 @@ fun DestinationMapPickerDialog(
                 if (result != null) {
                     val point = GeoPoint(result.latitude, result.longitude)
                     mapViewInstance?.controller?.apply {
-                        setZoom(18.0)
+                        setZoom(18.5)
                         animateTo(point)
                     }
                     currentPickedAddress = result.address
@@ -560,276 +591,321 @@ fun DestinationMapPickerDialog(
         }
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = true
-        )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
     ) {
-        Surface(
-            color = Color.White,
-            modifier = Modifier.fillMaxSize()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Pinned Header Bar: Title and Close button (Permanently fixed at top)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White)
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Select Destination on Map",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = GlipNavyPrimary
-                        )
-                        Text(
-                            text = "Point crosshair pin to your target location",
-                            fontSize = 11.sp,
-                            color = Color(0xFF64748B)
-                        )
-                    }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = Color(0xFF64748B)
-                        )
-                    }
-                }
-
-                // Pinned Search Bar in Map Dialog with Keyboard Actions & Go Button
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.White)
-                        .padding(horizontal = 14.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = { Text("Search city, station, or landmark...", fontSize = 12.sp) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = Color(0xFF0284C7),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        trailingIcon = {
-                            if (isSearching) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color(0xFF0284C7)
-                                )
-                            } else if (searchQuery.isNotBlank()) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(
-                                        onClick = { searchQuery = "" },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Close,
-                                            contentDescription = "Clear",
-                                            tint = Color(0xFF94A3B8),
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { performSearch() },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Text(
-                                            "Go",
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF0284C7),
-                                            fontSize = 13.sp
-                                        )
-                                    }
-                                }
-                            }
-                        },
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Search
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onSearch = { performSearch() }
-                        ),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+            // Pinned Header Bar: Title and Close button (Permanently fixed at top, never jumps)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Select Destination on Map",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = GlipNavyPrimary
+                    )
+                    Text(
+                        text = "Point crosshair pin to your target location",
+                        fontSize = 11.sp,
+                        color = Color(0xFF64748B)
                     )
                 }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color(0xFF64748B)
+                    )
+                }
+            }
 
-                Spacer(modifier = Modifier.height(4.dp))
+            // Pinned Search Bar in Map View with Keyboard Actions & Go Button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search city, station, or landmark...", fontSize = 12.sp) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = Color(0xFF0284C7),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (isSearching) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = Color(0xFF0284C7)
+                            )
+                        } else if (searchQuery.isNotBlank()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = { searchQuery = "" },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Clear",
+                                        tint = Color(0xFF94A3B8),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { performSearch() },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Text(
+                                        "Go",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF0284C7),
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Search
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onSearch = { performSearch() }
+                    ),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
-                // Map Canvas with Center Pin & My Location Blue FAB
+            // Map Canvas with Center Pin, Driver GPS Puck, & My Location Blue FAB
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        MapView(ctx).apply {
+                            setTileSource(TileSourceFactory.MAPNIK)
+                            setMultiTouchControls(true)
+                            isTilesScaledToDpi = true
+                            isFlingEnabled = true
+                            minZoomLevel = 4.0
+                            maxZoomLevel = 20.0
+                            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+
+                            val centerLat = if (initialLat != 0.0) initialLat else 21.0974
+                            val centerLng = if (initialLng != 0.0) initialLng else 81.0336
+                            val initialPoint = GeoPoint(centerLat, centerLng)
+                            controller.setZoom(18.0)
+                            controller.setCenter(initialPoint)
+
+                            // Driver live vehicle marker
+                            if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0) {
+                                val puck = Marker(this).apply {
+                                    position = GeoPoint(driverLiveLocation.latitude, driverLiveLocation.longitude)
+                                    icon = createDriverVehiclePuck(ctx)
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    title = "Your Current Location"
+                                }
+                                overlays.add(puck)
+                            }
+
+                            // Smooth touch handling without interrupting drag or shifting window
+                            setOnTouchListener { v, event ->
+                                when (event.action) {
+                                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                                        v.parent?.requestDisallowInterceptTouchEvent(true)
+                                    }
+                                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                        v.parent?.requestDisallowInterceptTouchEvent(false)
+                                    }
+                                }
+                                false
+                            }
+
+                            // Listen to map movement to live reverse-geocode center position
+                            addMapListener(object : MapListener {
+                                override fun onScroll(event: ScrollEvent?): Boolean {
+                                    triggerReverseGeocode()
+                                    return false
+                                }
+
+                                override fun onZoom(event: ZoomEvent?): Boolean {
+                                    triggerReverseGeocode()
+                                    return false
+                                }
+                            })
+
+                            onResume()
+                            mapViewInstance = this
+                        }
+                    },
+                    update = { mv ->
+                        if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0) {
+                            var driverMarker = mv.overlays.filterIsInstance<Marker>().find { it.title == "Your Current Location" }
+                            if (driverMarker == null) {
+                                driverMarker = Marker(mv).apply {
+                                    icon = createDriverVehiclePuck(mv.context)
+                                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                                    title = "Your Current Location"
+                                }
+                                mv.overlays.add(driverMarker)
+                            }
+                            driverMarker.position = GeoPoint(driverLiveLocation.latitude, driverLiveLocation.longitude)
+                            mv.invalidate()
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // Center Crosshair Pin (Red Map Pin)
+                Icon(
+                    imageVector = Icons.Default.Place,
+                    contentDescription = "Center Point Pin",
+                    tint = Color(0xFFEF4444),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(46.dp)
+                        .offset(y = (-23).dp)
+                )
+
+                // Center Pin Target Shadow Dot
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                ) {
-                    AndroidView(
-                        factory = { ctx ->
-                            MapView(ctx).apply {
-                                setTileSource(TileSourceFactory.MAPNIK)
-                                setMultiTouchControls(true)
-                                isTilesScaledToDpi = true
-                                isFlingEnabled = true
-                                minZoomLevel = 4.0
-                                maxZoomLevel = 20.0
-                                zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+                        .align(Alignment.Center)
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f))
+                )
 
-                                val initialPoint = GeoPoint(initialLat, initialLng)
-                                controller.setZoom(18.0)
-                                controller.setCenter(initialPoint)
-
-                                // Handle touch events: disallow parent intercept & dismiss keyboard cleanly
-                                setOnTouchListener { v, event ->
-                                    when (event.action) {
-                                        MotionEvent.ACTION_DOWN -> {
-                                            v.parent?.requestDisallowInterceptTouchEvent(true)
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                        }
-                                        MotionEvent.ACTION_MOVE -> {
-                                            v.parent?.requestDisallowInterceptTouchEvent(true)
-                                        }
-                                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                            v.parent?.requestDisallowInterceptTouchEvent(false)
-                                        }
-                                    }
-                                    false
-                                }
-
-                                // Listen to map movement to live reverse-geocode center position
-                                addMapListener(object : MapListener {
-                                    override fun onScroll(event: ScrollEvent?): Boolean {
-                                        triggerReverseGeocode()
-                                        return false
-                                    }
-
-                                    override fun onZoom(event: ZoomEvent?): Boolean {
-                                        triggerReverseGeocode()
-                                        return false
-                                    }
-                                })
-
-                                onResume()
-                                mapViewInstance = this
+                // Blue Current Location FAB Button (Recenter to live GPS location)
+                FloatingActionButton(
+                    onClick = {
+                        val curLat: Double
+                        val curLng: Double
+                        if (driverLiveLocation != null && driverLiveLocation.latitude != 0.0) {
+                            curLat = driverLiveLocation.latitude
+                            curLng = driverLiveLocation.longitude
+                        } else {
+                            val best = locationManager.getBestLastKnownLocation()
+                            if (best != null && best.latitude != 0.0) {
+                                curLat = best.latitude
+                                curLng = best.longitude
+                            } else {
+                                curLat = 0.0
+                                curLng = 0.0
                             }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
+                        }
 
-                    // Center Crosshair Pin (Red Map Pin)
-                    Icon(
-                        imageVector = Icons.Default.Place,
-                        contentDescription = "Center Point Pin",
-                        tint = Color(0xFFEF4444),
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(46.dp)
-                            .offset(y = (-23).dp)
-                    )
-
-                    // Center Pin Target Shadow Dot
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.5f))
-                    )
-
-                    // Blue Current Location FAB Button (Recenter to live GPS location)
-                    FloatingActionButton(
-                        onClick = {
-                            val myPoint = GeoPoint(initialLat, initialLng)
+                        if (curLat != 0.0 && curLng != 0.0) {
+                            val myPoint = GeoPoint(curLat, curLng)
                             mapViewInstance?.controller?.apply {
                                 setZoom(18.5)
                                 animateTo(myPoint)
                             }
                             coroutineScope.launch {
                                 currentPickedAddress = "Locating address..."
-                                val addr = OsmGeocoderHelper.reverseGeocode(context, initialLat, initialLng)
+                                val addr = OsmGeocoderHelper.reverseGeocode(context, curLat, curLng)
                                 currentPickedAddress = addr
                             }
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(bottom = 14.dp, end = 14.dp)
-                            .size(44.dp),
-                        containerColor = Color(0xFF0284C7),
-                        contentColor = Color.White,
-                        shape = CircleShape,
-                        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
+                        } else {
+                            locationManager.refreshGpsStatus()
+                            locationManager.startTracking()
+                            Toast.makeText(
+                                context,
+                                "Device GPS search kar raha hai... Kripya 2 second ruk kar dubara tap karein.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 14.dp, end = 14.dp)
+                        .size(44.dp),
+                    containerColor = Color(0xFF0284C7),
+                    contentColor = Color.White,
+                    shape = CircleShape,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MyLocation,
+                        contentDescription = "My Current Location",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            // Bottom Action Bar: Confirm Location
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
+                    .navigationBarsPadding(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.MyLocation,
-                            contentDescription = "My Current Location",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
+                            imageVector = Icons.Default.Place,
+                            contentDescription = null,
+                            tint = Color(0xFF0284C7),
+                            modifier = Modifier.size(18.dp)
                         )
-                    }
-                }
-
-                // Bottom Action Bar: Confirm Location
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Place,
-                                contentDescription = null,
-                                tint = Color(0xFF0284C7),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "Selected Location",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF64748B)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = currentPickedAddress,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = GlipNavyPrimary,
-                            maxLines = 3
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        GlipPrimaryButton(
-                            text = "Confirm Destination",
-                            onClick = {
-                                val center = mapViewInstance?.mapCenter
-                                val lat = center?.latitude ?: initialLat
-                                val lng = center?.longitude ?: initialLng
-                                onLocationSelected(currentPickedAddress, lat, lng)
-                            }
+                            text = "Selected Location",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF64748B)
                         )
                     }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = currentPickedAddress,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = GlipNavyPrimary,
+                        maxLines = 3
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    GlipPrimaryButton(
+                        text = "Confirm Destination",
+                        onClick = {
+                            val center = mapViewInstance?.mapCenter
+                            val lat = center?.latitude ?: initialLat
+                            val lng = center?.longitude ?: initialLng
+                            onLocationSelected(currentPickedAddress, lat, lng)
+                        }
+                    )
                 }
             }
         }
