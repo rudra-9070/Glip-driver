@@ -1,6 +1,7 @@
 package com.glip.driver.ui.home
 
 import android.Manifest
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Home
@@ -94,6 +96,11 @@ fun HomeScreen(
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
+
+    // Handle back press to close drawer if open
+    BackHandler(enabled = drawerState.isOpen) {
+        coroutineScope.launch { drawerState.close() }
+    }
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -169,42 +176,59 @@ fun HomeScreen(
                 drawerContentColor = Color(0xFF0F172A),
                 modifier = Modifier.width(300.dp)
             ) {
-                // Sleek Clean White Drawer Header
+                // Sleek Clean White Drawer Header with Close Button
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFFF8FAFC))
-                        .padding(horizontal = 20.dp, vertical = 24.dp)
+                        .padding(horizontal = 16.dp, vertical = 20.dp)
                 ) {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(GlipNavyPrimary),
-                            contentAlignment = Alignment.Center
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(GlipNavyPrimary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DirectionsCar,
+                                    contentDescription = "Glip Logo",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Glip Driver",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = GlipNavyPrimary
+                                )
+                                Text(
+                                    text = "Driver Partner App",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                        }
+
+                        // Close / Back Button inside Drawer
+                        IconButton(
+                            onClick = { coroutineScope.launch { drawerState.close() } },
+                            modifier = Modifier.size(36.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.DirectionsCar,
-                                contentDescription = "Glip Logo",
-                                tint = Color.White,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "Glip Driver",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = GlipNavyPrimary
-                            )
-                            Text(
-                                text = "Driver Partner App",
-                                fontSize = 12.sp,
-                                color = Color(0xFF64748B)
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close Menu",
+                                tint = Color(0xFF64748B),
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
@@ -271,55 +295,6 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
 
-                // 3. Requests Tab
-                NavigationDrawerItem(
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.DirectionsCar,
-                            contentDescription = "Requests",
-                            tint = Color(0xFF475569),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    },
-                    label = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Requests",
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF0F172A),
-                                fontSize = 15.sp
-                            )
-                            if (requests.isNotEmpty()) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFF16A34A)
-                                ) {
-                                    Text(
-                                        text = "${requests.size}",
-                                        color = Color.White,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    selected = false,
-                    onClick = {
-                        coroutineScope.launch { drawerState.close() }
-                        onNavigateToRequests()
-                    },
-                    colors = NavigationDrawerItemDefaults.colors(
-                        unselectedContainerColor = Color.Transparent
-                    ),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-
                 Spacer(modifier = Modifier.weight(1f))
 
                 // Diagnostics item at bottom of drawer
@@ -374,9 +349,13 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. Hamburger Menu Button (Only this opens the drawer)
+                    // 1. Hamburger Menu Button (Toggles drawer open/close)
                     IconButton(
-                        onClick = { coroutineScope.launch { drawerState.open() } },
+                        onClick = {
+                            coroutineScope.launch {
+                                if (drawerState.isOpen) drawerState.close() else drawerState.open()
+                            }
+                        },
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
