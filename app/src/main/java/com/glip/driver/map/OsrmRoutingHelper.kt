@@ -36,7 +36,7 @@ object OsrmRoutingHelper {
         // Query endpoints with fast fallback
         for (baseEndpoint in ENDPOINTS) {
             try {
-                val urlString = "$baseEndpoint$originLng,$originLat;$destLng,$destLat?overview=full&geometries=geojson"
+                val urlString = "$baseEndpoint$originLng,$originLat;$destLng,$destLat?overview=full&geometries=geojson&radiuses=1000;1000&continue_straight=true"
                 val url = URL(urlString)
                 val connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"

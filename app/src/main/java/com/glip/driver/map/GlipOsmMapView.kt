@@ -155,27 +155,19 @@ fun GlipOsmMapView(
         }
     }
 
-    // Determine smart destination when route is active
-    val effectiveDestPoint = remember(driverGeoPoint, corridor.destinationPoint, isRouteActive) {
-        if (!isRouteActive) {
+    // Determine accurate real road destination when route is active
+    val effectiveDestPoint = remember(route, driverGeoPoint, isRouteActive) {
+        if (!isRouteActive || route == null) {
             corridor.destinationPoint
+        } else if (route.destLat != 0.0 && route.destLng != 0.0) {
+            GeoPoint(route.destLat, route.destLng)
         } else {
-            val distArray = FloatArray(1)
-            Location.distanceBetween(
-                driverGeoPoint.latitude, driverGeoPoint.longitude,
-                corridor.destinationPoint.latitude, corridor.destinationPoint.longitude,
-                distArray
+            val (resolvedLat, resolvedLng) = RouteCoordinateResolver.resolveCoordinates(
+                route.destinationName,
+                driverGeoPoint.latitude,
+                driverGeoPoint.longitude
             )
-            if (distArray[0] > 120_000f) {
-                // Rajnandgaon to Dongargarh (Rajnandgaon - Dongargarh Rd corridor)
-                if (driverGeoPoint.latitude in 20.8..21.3 && driverGeoPoint.longitude in 80.5..81.3) {
-                    GeoPoint(21.1873, 80.7618)
-                } else {
-                    GeoPoint(driverGeoPoint.latitude + 0.08, driverGeoPoint.longitude - 0.10)
-                }
-            } else {
-                corridor.destinationPoint
-            }
+            GeoPoint(resolvedLat, resolvedLng)
         }
     }
 
