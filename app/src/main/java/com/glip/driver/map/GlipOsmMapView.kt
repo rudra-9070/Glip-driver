@@ -230,7 +230,7 @@ fun GlipOsmMapView(
             originMarkerRef?.isEnabled = false
             destMarkerRef?.isEnabled = false
             mapViewRef?.controller?.apply {
-                setZoom(18.0)
+                setZoom(24.0)
                 setCenter(driverGeoPoint)
             }
             mapViewRef?.invalidate()
@@ -247,7 +247,7 @@ fun GlipOsmMapView(
                     isTilesScaledToDpi = true
                     isFlingEnabled = true
                     minZoomLevel = 4.0
-                    maxZoomLevel = 20.0
+                    maxZoomLevel = 26.0
                     zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
                     // Ensure touch pinch-to-zoom and pan events are not intercepted by parent views
@@ -256,7 +256,7 @@ fun GlipOsmMapView(
                         false
                     }
 
-                    controller.setZoom(18.0)
+                    controller.setZoom(24.0)
                     controller.setCenter(driverGeoPoint)
 
                     // Polyline: Solid Jet-Black road curve matching Screenshot 2
@@ -331,7 +331,7 @@ fun GlipOsmMapView(
 
                     post {
                         controller.setCenter(driverGeoPoint)
-                        controller.setZoom(18.0)
+                        controller.setZoom(24.0)
                     }
 
                     mapViewRef = this
@@ -344,7 +344,7 @@ fun GlipOsmMapView(
         FloatingActionButton(
             onClick = {
                 mapViewRef?.controller?.apply {
-                    setZoom(18.0)
+                    setZoom(24.0)
                     animateTo(driverGeoPoint)
                 }
             },

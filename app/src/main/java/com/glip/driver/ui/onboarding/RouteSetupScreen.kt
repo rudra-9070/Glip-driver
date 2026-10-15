@@ -604,6 +604,7 @@ fun DestinationMapPickerDialog(
                                 setMultiTouchControls(true)
                                 isTilesScaledToDpi = true
                                 isFlingEnabled = true
+                                maxZoomLevel = 26.0
                                 zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
                                 controller.setZoom(17.0)
