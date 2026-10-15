@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -35,6 +37,9 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +49,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -57,6 +63,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -64,13 +71,19 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.glip.driver.domain.model.DriverRoute
 import com.glip.driver.domain.repository.DriverRepository
+import com.glip.driver.map.OsmGeocoderHelper
 import com.glip.driver.map.RouteCoordinateResolver
 import com.glip.driver.ui.components.GlipPrimaryButton
 import com.glip.driver.ui.theme.GlipErrorRed
 import com.glip.driver.ui.theme.GlipNavyPrimary
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
@@ -244,7 +257,12 @@ fun RouteSetupScreen(
                     val (resolvedLat, resolvedLng) = if (destLat != 0.0 && destLng != 0.0) {
                         Pair(destLat, destLng)
                     } else {
-                        RouteCoordinateResolver.resolveCoordinates(destText)
+                        val geo = OsmGeocoderHelper.searchLocation(context, destText)
+                        if (geo != null) {
+                            Pair(geo.latitude, geo.longitude)
+                        } else {
+                            RouteCoordinateResolver.resolveCoordinates(destText)
+                        }
                     }
 
                     // Check if already in saved destinations list; if not, add it
@@ -473,7 +491,8 @@ fun RouteSetupScreen(
 }
 
 /**
- * Interactive Dialog: Map with search bar, draggable center pin, and real-time location resolution.
+ * Interactive Dialog: Map with search bar, draggable center pin, real-time location resolution,
+ * and Current Location FAB (Blue button).
  */
 @Composable
 fun DestinationMapPickerDialog(
@@ -485,8 +504,50 @@ fun DestinationMapPickerDialog(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
+    var isSearching by remember { mutableStateOf(false) }
     var mapViewInstance by remember { mutableStateOf<MapView?>(null) }
-    var currentPickedAddress by remember { mutableStateOf("Move map to point destination") }
+    var currentPickedAddress by remember { mutableStateOf("Locating address...") }
+    var reverseGeocodeJob by remember { mutableStateOf<Job?>(null) }
+
+    // Initial reverse geocode on launch
+    LaunchedEffect(initialLat, initialLng) {
+        val addr = OsmGeocoderHelper.reverseGeocode(context, initialLat, initialLng)
+        currentPickedAddress = addr
+    }
+
+    fun triggerReverseGeocode() {
+        reverseGeocodeJob?.cancel()
+        reverseGeocodeJob = coroutineScope.launch {
+            delay(500) // Debounce so it only fires when the user stops dragging
+            val mv = mapViewInstance ?: return@launch
+            val center = mv.mapCenter ?: return@launch
+            currentPickedAddress = "Locating address..."
+            val addr = OsmGeocoderHelper.reverseGeocode(context, center.latitude, center.longitude)
+            currentPickedAddress = addr
+        }
+    }
+
+    fun performSearch() {
+        val query = searchQuery.trim()
+        if (query.isBlank()) return
+        isSearching = true
+        coroutineScope.launch {
+            val result = OsmGeocoderHelper.searchLocation(context, query)
+            withContext(Dispatchers.Main) {
+                isSearching = false
+                if (result != null) {
+                    val point = GeoPoint(result.latitude, result.longitude)
+                    mapViewInstance?.controller?.apply {
+                        setZoom(19.0)
+                        animateTo(point)
+                    }
+                    currentPickedAddress = result.address
+                } else {
+                    Toast.makeText(context, "Location not found for: $query", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -497,7 +558,7 @@ fun DestinationMapPickerDialog(
             color = Color.White,
             modifier = Modifier
                 .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.90f)
+                .fillMaxHeight(0.92f)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header Bar: Title and Close button
@@ -530,7 +591,7 @@ fun DestinationMapPickerDialog(
                     }
                 }
 
-                // Search Bar in Map
+                // Search Bar in Map Dialog with Keyboard Actions & Go Button
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -540,58 +601,64 @@ fun DestinationMapPickerDialog(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text("Search landmark, station, or city...", fontSize = 12.sp) },
+                        placeholder = { Text("Search city, station, or landmark...", fontSize = 12.sp) },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = "Search",
-                                tint = Color(0xFF64748B),
+                                tint = Color(0xFF0284C7),
                                 modifier = Modifier.size(18.dp)
                             )
                         },
                         trailingIcon = {
-                            if (searchQuery.isNotBlank()) {
-                                IconButton(onClick = {
-                                    val query = searchQuery.trim()
-                                    coroutineScope.launch(Dispatchers.IO) {
-                                        try {
-                                            val geocoder = Geocoder(context, Locale.getDefault())
-                                            val results = geocoder.getFromLocationName(query, 1)
-                                            if (!results.isNullOrEmpty()) {
-                                                val found = results[0]
-                                                withContext(Dispatchers.Main) {
-                                                    val point = GeoPoint(found.latitude, found.longitude)
-                                                    mapViewInstance?.controller?.animateTo(point)
-                                                    currentPickedAddress = found.getAddressLine(0) ?: query
-                                                }
-                                            } else {
-                                                val (lat, lng) = RouteCoordinateResolver.resolveCoordinates(query)
-                                                withContext(Dispatchers.Main) {
-                                                    mapViewInstance?.controller?.animateTo(GeoPoint(lat, lng))
-                                                    currentPickedAddress = query
-                                                }
-                                            }
-                                        } catch (e: Exception) {
-                                            val (lat, lng) = RouteCoordinateResolver.resolveCoordinates(query)
-                                            withContext(Dispatchers.Main) {
-                                                mapViewInstance?.controller?.animateTo(GeoPoint(lat, lng))
-                                                currentPickedAddress = query
-                                            }
-                                        }
+                            if (isSearching) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color(0xFF0284C7)
+                                )
+                            } else if (searchQuery.isNotBlank()) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(
+                                        onClick = { searchQuery = "" },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Clear",
+                                            tint = Color(0xFF94A3B8),
+                                            modifier = Modifier.size(16.dp)
+                                        )
                                     }
-                                }) {
-                                    Text("Go", fontWeight = FontWeight.Bold, color = Color(0xFF0284C7), fontSize = 12.sp)
+                                    IconButton(
+                                        onClick = { performSearch() },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Text(
+                                            "Go",
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF0284C7),
+                                            fontSize = 13.sp
+                                        )
+                                    }
                                 }
                             }
                         },
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Search
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onSearch = { performSearch() }
+                        ),
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Map Canvas with Center Pin
+                // Map Canvas with Center Pin & My Location Blue FAB
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -607,15 +674,28 @@ fun DestinationMapPickerDialog(
                                 maxZoomLevel = 26.0
                                 zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
-                                controller.setZoom(17.0)
                                 val initialPoint = GeoPoint(initialLat, initialLng)
+                                controller.setZoom(18.0)
                                 controller.setCenter(initialPoint)
 
-                                // Prevent parent touch interception
+                                // Prevent parent touch interception for smooth drag & pinch
                                 setOnTouchListener { v, _ ->
                                     v.parent?.requestDisallowInterceptTouchEvent(true)
                                     false
                                 }
+
+                                // Listen to map movement to live reverse-geocode center position
+                                addMapListener(object : MapListener {
+                                    override fun onScroll(event: ScrollEvent?): Boolean {
+                                        triggerReverseGeocode()
+                                        return false
+                                    }
+
+                                    override fun onZoom(event: ZoomEvent?): Boolean {
+                                        triggerReverseGeocode()
+                                        return false
+                                    }
+                                })
 
                                 onResume()
                                 mapViewInstance = this
@@ -624,7 +704,7 @@ fun DestinationMapPickerDialog(
                         modifier = Modifier.fillMaxSize()
                     )
 
-                    // Center Crosshair Pin
+                    // Center Crosshair Pin (Red Map Pin)
                     Icon(
                         imageVector = Icons.Default.Place,
                         contentDescription = "Center Point Pin",
@@ -643,6 +723,37 @@ fun DestinationMapPickerDialog(
                             .clip(CircleShape)
                             .background(Color.Black.copy(alpha = 0.5f))
                     )
+
+                    // Blue Current Location FAB Button (Recenter to live GPS location)
+                    FloatingActionButton(
+                        onClick = {
+                            val myPoint = GeoPoint(initialLat, initialLng)
+                            mapViewInstance?.controller?.apply {
+                                setZoom(20.0)
+                                animateTo(myPoint)
+                            }
+                            coroutineScope.launch {
+                                currentPickedAddress = "Locating address..."
+                                val addr = OsmGeocoderHelper.reverseGeocode(context, initialLat, initialLng)
+                                currentPickedAddress = addr
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(bottom = 14.dp, end = 14.dp)
+                            .size(44.dp),
+                        containerColor = Color(0xFF0284C7),
+                        contentColor = Color.White,
+                        shape = CircleShape,
+                        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MyLocation,
+                            contentDescription = "My Current Location",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
 
                 // Bottom Action Bar: Confirm Location
@@ -680,7 +791,7 @@ fun DestinationMapPickerDialog(
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = GlipNavyPrimary,
-                            maxLines = 2
+                            maxLines = 3
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         GlipPrimaryButton(
@@ -689,25 +800,7 @@ fun DestinationMapPickerDialog(
                                 val center = mapViewInstance?.mapCenter
                                 val lat = center?.latitude ?: initialLat
                                 val lng = center?.longitude ?: initialLng
-
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    var resolved = currentPickedAddress
-                                    try {
-                                        val geocoder = Geocoder(context, Locale.getDefault())
-                                        val addresses = geocoder.getFromLocation(lat, lng, 1)
-                                        if (!addresses.isNullOrEmpty()) {
-                                            resolved = addresses[0].locality ?: addresses[0].subLocality ?: addresses[0].featureName ?: addresses[0].getAddressLine(0) ?: "Destination (${String.format("%.4f, %.4f", lat, lng)})"
-                                        }
-                                    } catch (e: Exception) {
-                                        if (resolved.contains("Move map", ignoreCase = true)) {
-                                            resolved = "Destination (${String.format("%.4f, %.4f", lat, lng)})"
-                                        }
-                                    }
-
-                                    withContext(Dispatchers.Main) {
-                                        onLocationSelected(resolved, lat, lng)
-                                    }
-                                }
+                                onLocationSelected(currentPickedAddress, lat, lng)
                             }
                         )
                     }

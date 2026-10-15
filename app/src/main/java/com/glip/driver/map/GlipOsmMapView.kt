@@ -214,11 +214,9 @@ fun GlipOsmMapView(
                 coreLineRef?.setPoints(roadResult.points)
 
                 mapViewRef?.let { mv ->
-                    try {
-                        val bbox = BoundingBox.fromGeoPoints(roadResult.points)
-                        mv.zoomToBoundingBox(bbox, true, 80)
-                    } catch (e: Exception) {
-                        mv.controller.animateTo(driverGeoPoint)
+                    mv.controller.apply {
+                        setZoom(22.0)
+                        animateTo(driverGeoPoint)
                     }
                     mv.invalidate()
                 }
