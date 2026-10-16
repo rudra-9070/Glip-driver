@@ -58,7 +58,7 @@ object SupabaseClient {
             val date = sdf.parse(clean) ?: return false
             val ageMs = System.currentTimeMillis() - date.time
             ageMs in -5000L..(maxAgeSeconds * 1000L) // Allow small clock skew
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             true
         }
     }
