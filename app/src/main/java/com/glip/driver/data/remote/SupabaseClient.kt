@@ -4,6 +4,9 @@ import android.util.Log
 import com.glip.driver.domain.model.DriverProfile
 import com.glip.driver.domain.model.DriverStatus
 import com.glip.driver.domain.model.Vehicle
+import com.glip.driver.domain.model.PassengerRequest
+import com.glip.driver.domain.model.RouteMatchResult
+import com.glip.driver.domain.model.CompatibilityLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -202,4 +205,113 @@ object SupabaseClient {
             false
         }
     }
+
+    /**
+     * Fetch real-time pending ride requests submitted by passengers.
+     */
+    suspend fun fetchPendingRideRequests(driverMobile: String?): List<PassengerRequest> = withContext(Dispatchers.IO) {
+        val list = mutableListOf<PassengerRequest>()
+        try {
+            val endpoint = "/ride_requests?status=in.(PENDING,requested)&order=created_at.desc&limit=10"
+            val conn = openConnection(endpoint, "GET")
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val response = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                val arr = JSONArray(response)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val assignedDriver = obj.optString("driver_id", "")
+                    if (assignedDriver.isNotBlank() && driverMobile != null && assignedDriver != driverMobile) {
+                        continue
+                    }
+                    val id = obj.optString("id")
+                    val passName = obj.optString("passenger_name", "Passenger")
+                    val passMobile = obj.optString("passenger_mobile", "")
+                    val pickup = obj.optString("pickup_name", "")
+                    val drop = obj.optString("drop_name", "")
+                    val pLat = obj.optDouble("pickup_lat", 0.0)
+                    val pLng = obj.optDouble("pickup_lng", 0.0)
+                    val dLat = obj.optDouble("drop_lat", 0.0)
+                    val dLng = obj.optDouble("drop_lng", 0.0)
+                    val seats = obj.optInt("requested_seats", 1)
+                    val fare = obj.optDouble("fare_amount", 0.0).toInt().coerceAtLeast(30)
+
+                    list.add(
+                        PassengerRequest(
+                            id = id,
+                            passengerAlias = passName,
+                            passengerMobile = passMobile,
+                            pickupName = pickup,
+                            dropoffName = drop,
+                            pickupLat = pLat,
+                            pickupLng = pLng,
+                            dropoffLat = dLat,
+                            dropoffLng = dLng,
+                            requestedSeats = seats,
+                            approximateTime = "Just now",
+                            illustrativeFare = fare,
+                            matchResult = RouteMatchResult(
+                                level = CompatibilityLevel.GOOD_MATCH,
+                                explanation = "Passenger along your route corridor",
+                                isCapacityAvailable = true
+                            )
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchPendingRideRequests error: ${e.message}")
+        }
+        list
+    }
+
+    /**
+     * Mark a ride request as ACCEPTED by driver in Supabase.
+     */
+    suspend fun acceptRideRequest(requestId: String, driverMobile: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val endpoint = "/ride_requests?id=eq.$requestId"
+            val conn = openConnection(endpoint, "PATCH")
+            conn.doOutput = true
+
+            val json = JSONObject().apply {
+                put("status", "ACCEPTED")
+                put("driver_id", driverMobile)
+            }
+
+            OutputStreamWriter(conn.outputStream).use { writer ->
+                writer.write(json.toString())
+                writer.flush()
+            }
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            Log.w(TAG, "acceptRideRequest error: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Mark a ride request as DECLINED by driver in Supabase.
+     */
+    suspend fun declineRideRequest(requestId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val endpoint = "/ride_requests?id=eq.$requestId"
+            val conn = openConnection(endpoint, "PATCH")
+            conn.doOutput = true
+
+            val json = JSONObject().apply {
+                put("status", "DECLINED")
+            }
+
+            OutputStreamWriter(conn.outputStream).use { writer ->
+                writer.write(json.toString())
+                writer.flush()
+            }
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            Log.w(TAG, "declineRideRequest error: ${e.message}")
+            false
+        }
+    }
 }
+

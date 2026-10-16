@@ -327,6 +327,32 @@ fun GlipOsmMapView(
         }
     }
 
+    val passengerMarkersList = remember { mutableListOf<Marker>() }
+
+    // Dynamically update passenger pickup markers whenever requests change
+    LaunchedEffect(requests, mapViewRef) {
+        val mv = mapViewRef ?: return@LaunchedEffect
+        // Remove existing markers
+        passengerMarkersList.forEach { mv.overlays.remove(it) }
+        passengerMarkersList.clear()
+
+        // Add new green animated pickup markers for co-passengers
+        requests.forEach { req ->
+            if (req.pickupLat != 0.0 && req.pickupLng != 0.0) {
+                val passMarker = Marker(mv).apply {
+                    position = GeoPoint(req.pickupLat, req.pickupLng)
+                    icon = createPassengerPuck(context)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    title = "Pickup Point: ${req.passengerAlias} (1 Person)"
+                    snippet = "Yahan se 1 passenger baithne wala hai (${req.pickupName})"
+                }
+                mv.overlays.add(passMarker)
+                passengerMarkersList.add(passMarker)
+            }
+        }
+        mv.invalidate()
+    }
+
     Box(modifier = modifier) {
         // Native OpenStreetMap Render Surface (Free, Legal, Clean Google/Ola style)
         AndroidView(
@@ -402,20 +428,6 @@ fun GlipOsmMapView(
                     }
                     overlays.add(driverPuck)
                     driverPuckRef = driverPuck
-
-                    // Passenger Pooling Request Pins
-                    requests.take(3).forEach { req ->
-                        if (req.pickupLat != 0.0 && req.pickupLng != 0.0) {
-                            val passMarker = Marker(this).apply {
-                                position = GeoPoint(req.pickupLat, req.pickupLng)
-                                icon = createPassengerPuck(ctx)
-                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                                title = "Passenger: ${req.passengerAlias} (${req.requestedSeats} seat)"
-                                snippet = "${req.pickupName} ➔ ${req.dropoffName}"
-                            }
-                            overlays.add(passMarker)
-                        }
-                    }
 
                     // Start tile downloading immediately
                     onResume()
@@ -628,33 +640,62 @@ fun createStopWaypointDrawable(context: Context, number: Int): Drawable {
 }
 
 /**
- * Passenger Pooling Request Pickup Pin (Amber Dot).
+ * Passenger Pooling Request Pickup Pin (Animated Green Circular Puck).
+ * Shows clearly on driver's map: "Yahan se ek person jayega"
  */
 fun createPassengerPuck(context: Context): Drawable {
     val density = context.resources.displayMetrics.density
-    val size = (28 * density).toInt()
+    val size = (36 * density).toInt()
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val cx = size / 2f
     val cy = size / 2f
 
-    val amberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = AndroidColor.parseColor("#F59E0B")
+    // 1. Soft pulsing green radar aura
+    val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.parseColor("#10B981")
+        alpha = 60
         style = Paint.Style.FILL
     }
-    canvas.drawCircle(cx, cy, 12 * density, amberPaint)
+    canvas.drawCircle(cx, cy, 17 * density, haloPaint)
 
+    // 2. Bright green outer boundary ring
+    val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.parseColor("#10B981")
+        strokeWidth = 2.5f * density
+        style = Paint.Style.STROKE
+    }
+    canvas.drawCircle(cx, cy, 14 * density, ringPaint)
+
+    // 3. Crisp white circular background
     val whitePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = AndroidColor.WHITE
         style = Paint.Style.FILL
     }
-    canvas.drawCircle(cx, cy, 10 * density, whitePaint)
+    canvas.drawCircle(cx, cy, 12 * density, whitePaint)
 
-    val innerAmber = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = AndroidColor.parseColor("#D97706")
+    // 4. Vibrant Green core
+    val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.parseColor("#16A34A")
         style = Paint.Style.FILL
     }
-    canvas.drawCircle(cx, cy, 6 * density, innerAmber)
+    canvas.drawCircle(cx, cy, 9.5f * density, corePaint)
+
+    // 5. White person icon (Head + Torso)
+    val personPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.WHITE
+        style = Paint.Style.FILL
+    }
+    // Head
+    canvas.drawCircle(cx, cy - (3 * density), 2.5f * density, personPaint)
+    // Torso / shoulder arc
+    val torsoRect = android.graphics.RectF(
+        cx - (4.5f * density),
+        cy + (0.5f * density),
+        cx + (4.5f * density),
+        cy + (8 * density)
+    )
+    canvas.drawArc(torsoRect, 180f, 180f, true, personPaint)
 
     return BitmapDrawable(context.resources, bitmap)
 }

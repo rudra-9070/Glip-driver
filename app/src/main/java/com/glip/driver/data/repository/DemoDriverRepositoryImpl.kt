@@ -104,24 +104,26 @@ class DemoDriverRepositoryImpl(
         _isAvailableFlow.value = available
     }
 
+    fun setIncomingRequests(list: List<PassengerRequest>) {
+        _requestsFlow.value = list
+    }
+
     override suspend fun getRequests(): List<PassengerRequest> = _requestsFlow.value
 
     override suspend fun acceptRequest(requestId: String): Result<DemoTrip> {
         val req = _requestsFlow.value.find { it.id == requestId }
             ?: return Result.failure(IllegalArgumentException("Request not found"))
 
-        if (req.matchResult.level == CompatibilityLevel.NOT_COMPATIBLE) {
-            return Result.failure(IllegalStateException("Cannot accept an incompatible route request"))
+        val prof = _profileFlow.value
+        val driverMob = prof?.mobileNumber ?: ""
+        // Real-time sync to Supabase backend so Passenger App knows driver accepted!
+        if (driverMob.isNotBlank()) {
+            com.glip.driver.data.remote.SupabaseClient.acceptRideRequest(requestId, driverMob)
         }
 
         val currentVehicle = _vehicleFlow.value
-        if (req.requestedSeats > currentVehicle.availableSeats) {
-            return Result.failure(IllegalStateException("Not enough seats available"))
-        }
-
-        // Update vehicle occupied seats locally for demo
         val updatedVehicle = currentVehicle.copy(
-            occupiedSeats = currentVehicle.occupiedSeats + req.requestedSeats
+            occupiedSeats = (currentVehicle.occupiedSeats + req.requestedSeats).coerceAtMost(currentVehicle.totalCapacity)
         )
         updateVehicle(updatedVehicle)
 
@@ -137,7 +139,6 @@ class DemoDriverRepositoryImpl(
         )
 
         _tripsFlow.value = listOf(newTrip) + _tripsFlow.value
-        // Remove from pending requests
         _requestsFlow.value = _requestsFlow.value.filter { it.id != requestId }
 
         return Result.success(newTrip)
@@ -146,6 +147,9 @@ class DemoDriverRepositoryImpl(
     override suspend fun declineRequest(requestId: String): Result<Unit> {
         val req = _requestsFlow.value.find { it.id == requestId }
             ?: return Result.failure(IllegalArgumentException("Request not found"))
+
+        // Update Supabase
+        com.glip.driver.data.remote.SupabaseClient.declineRideRequest(requestId)
 
         val declinedRecord = DemoTrip(
             id = "trip_dec_${System.currentTimeMillis()}",

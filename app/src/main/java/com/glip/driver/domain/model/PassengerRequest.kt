@@ -16,6 +16,7 @@ data class RouteMatchResult(
 data class PassengerRequest(
     val id: String,
     val passengerAlias: String = "Demo Passenger",
+    val passengerMobile: String = "",
     val pickupName: String,
     val dropoffName: String,
     val pickupLat: Double,
