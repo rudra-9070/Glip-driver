@@ -139,6 +139,32 @@ object SupabaseClient {
     }
 
     /**
+     * Push online/offline status change immediately to Supabase `drivers` table.
+     */
+    suspend fun updateOnlineStatus(mobileNumber: String, isOnline: Boolean): Boolean = withContext(Dispatchers.IO) {
+        if (mobileNumber.isBlank()) return@withContext false
+        try {
+            val endpoint = "/drivers?mobile_number=eq.$mobileNumber"
+            val conn = openConnection(endpoint, "PATCH")
+            conn.doOutput = true
+
+            val json = JSONObject().apply {
+                put("is_online", isOnline)
+                put("last_updated_at", getIsoTimestamp())
+            }
+
+            OutputStreamWriter(conn.outputStream).use { writer ->
+                writer.write(json.toString())
+                writer.flush()
+            }
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            Log.w(TAG, "updateOnlineStatus failed: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * Push real-time GPS coordinates and compass bearing to Supabase.
      * Consumer/Passenger App listens to this table in real-time to show live vehicle movement!
      */
@@ -220,11 +246,15 @@ object SupabaseClient {
 
     /**
      * Fetch real-time pending ride requests submitted by passengers.
+     * Matches if assigned to driver's UUID, driver's mobile, or open corridor request.
      */
-    suspend fun fetchPendingRideRequests(driverIdentifier: String?): List<PassengerRequest> = withContext(Dispatchers.IO) {
+    suspend fun fetchPendingRideRequests(
+        driverUuid: String?,
+        driverMobile: String? = null
+    ): List<PassengerRequest> = withContext(Dispatchers.IO) {
         val list = mutableListOf<PassengerRequest>()
         try {
-            val endpoint = "/ride_requests?status=in.(PENDING,requested)&order=created_at.desc&limit=10"
+            val endpoint = "/ride_requests?status=in.(PENDING,requested)&order=created_at.desc&limit=15"
             val conn = openConnection(endpoint, "GET")
             val code = conn.responseCode
             if (code in 200..299) {
@@ -232,8 +262,17 @@ object SupabaseClient {
                 val arr = JSONArray(response)
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
-                    val assignedDriver = obj.optString("driver_id", "")
-                    if (assignedDriver.isNotBlank() && !driverIdentifier.isNullOrBlank() && assignedDriver != driverIdentifier) {
+                    val assignedDriver = obj.optString("driver_id", "").trim()
+                    
+                    // Match logic:
+                    // 1. If assignedDriver is empty -> open request for any driver on route!
+                    // 2. If assignedDriver matches driverUuid -> direct match!
+                    // 3. If assignedDriver matches driverMobile -> direct match!
+                    val isMatch = assignedDriver.isBlank() ||
+                            (!driverUuid.isNullOrBlank() && assignedDriver.equals(driverUuid, ignoreCase = true)) ||
+                            (!driverMobile.isNullOrBlank() && assignedDriver.equals(driverMobile, ignoreCase = true))
+                    
+                    if (!isMatch) {
                         continue
                     }
                     val id = obj.optString("id")

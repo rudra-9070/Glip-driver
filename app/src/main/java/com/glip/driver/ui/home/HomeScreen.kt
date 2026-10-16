@@ -89,6 +89,61 @@ import com.glip.driver.ui.theme.GlipAccentTeal
 import com.glip.driver.ui.theme.GlipNavyDark
 import com.glip.driver.ui.theme.GlipNavyPrimary
 import kotlinx.coroutines.launch
+import android.media.RingtoneManager
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import androidx.core.app.NotificationCompat
+
+fun playRideRequestAlert(context: android.content.Context, passengerName: String, fare: Int, pickupName: String) {
+    try {
+        val notificationUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val ringtone = RingtoneManager.getRingtone(context, notificationUri)
+        ringtone?.play()
+    } catch (_: Exception) {}
+
+    try {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vm = context.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            vm?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 400, 200, 400), -1))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator?.vibrate(longArrayOf(0, 400, 200, 400), -1)
+        }
+    } catch (_: Exception) {}
+
+    try {
+        val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as? NotificationManager
+        val channelId = "glip_driver_rides"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Ride Requests",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Incoming passenger ride requests"
+                enableVibration(true)
+            }
+            notificationManager?.createNotificationChannel(channel)
+        }
+        val builder = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("New Ride Request: ₹$fare")
+            .setContentText("$passengerName wants a seat at $pickupName")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+        notificationManager?.notify(101, builder.build())
+    } catch (_: Exception) {}
+}
 
 @Composable
 fun HomeScreen(
@@ -190,17 +245,49 @@ fun HomeScreen(
         }
     }
 
+    // Auto-sync real Supabase UUID from remote drivers table so driverId is guaranteed to match
+    LaunchedEffect(profile?.mobileNumber) {
+        val mob = profile?.mobileNumber
+        if (!mob.isNullOrBlank()) {
+            try {
+                val remoteDriver = com.glip.driver.data.remote.SupabaseClient.getDriverByMobile(mob)
+                if (remoteDriver != null && remoteDriver.id != profile?.id) {
+                    repository.saveProfile(remoteDriver)
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    var lastSeenRequestId by remember { mutableStateOf<String?>(null) }
+
     // Real-time polling for incoming passenger ride requests whenever driver is ONLINE
     LaunchedEffect(isAvailable, profile) {
-        if (!isAvailable) return@LaunchedEffect
+        if (!isAvailable) {
+            repository.setIncomingRequests(emptyList())
+            return@LaunchedEffect
+        }
         val prof = profile
-        val driverIdentifier = prof?.id ?: prof?.mobileNumber
+        val driverUuid = prof?.id
+        val driverMobile = prof?.mobileNumber
         while (true) {
             try {
-                val realRequests = com.glip.driver.data.remote.SupabaseClient.fetchPendingRideRequests(driverIdentifier)
+                val realRequests = com.glip.driver.data.remote.SupabaseClient.fetchPendingRideRequests(
+                    driverUuid = driverUuid,
+                    driverMobile = driverMobile
+                )
                 repository.setIncomingRequests(realRequests)
-            } catch (e: Exception) {}
-            kotlinx.coroutines.delay(3000L) // Poll every 3 seconds for instant response
+                val topReq = realRequests.firstOrNull()
+                if (topReq != null && topReq.id != lastSeenRequestId) {
+                    lastSeenRequestId = topReq.id
+                    playRideRequestAlert(
+                        context = context,
+                        passengerName = topReq.passengerAlias,
+                        fare = topReq.illustrativeFare,
+                        pickupName = topReq.pickupName
+                    )
+                }
+            } catch (_: Exception) {}
+            kotlinx.coroutines.delay(2500L) // Poll every 2.5 seconds for instant response
         }
     }
 
@@ -486,14 +573,88 @@ fun HomeScreen(
                         .clip(RoundedCornerShape(16.dp))
                 ) {
                     GlipOsmMapView(
-                        route = driverRoute,
-                        requests = requests,
+                        route = if (isAvailable) driverRoute else null,
+                        requests = if (isAvailable) requests else emptyList(),
                         driverLiveLocation = liveLocation,
                         modifier = Modifier.fillMaxSize()
                     )
 
+                    // Offline state overlay banner
+                    if (!isAvailable) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xFF0F172A).copy(alpha = 0.82f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(56.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFFEE2E2)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.LocationOff,
+                                            contentDescription = "Offline",
+                                            tint = Color(0xFFDC2626),
+                                            modifier = Modifier.size(30.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Text(
+                                        text = "YOU ARE OFFLINE",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF0F172A)
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Please turn online to get orders and receive passenger ride requests along your route.",
+                                        fontSize = 13.sp,
+                                        color = Color(0xFF64748B),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(18.dp))
+                                    Button(
+                                        onClick = {
+                                            coroutineScope.launch {
+                                                repository.setAvailable(true)
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(46.dp),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                                    ) {
+                                        Text(
+                                            text = "GO ONLINE",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Rapido / Uber Style Incoming Ride Request Popup
-                    val activePendingReq = requests.firstOrNull()
+                    val activePendingReq = if (isAvailable) requests.firstOrNull() else null
                     if (activePendingReq != null) {
                         Card(
                             modifier = Modifier

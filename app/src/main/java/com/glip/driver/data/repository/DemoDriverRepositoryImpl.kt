@@ -102,6 +102,10 @@ class DemoDriverRepositoryImpl(
     override suspend fun setAvailable(available: Boolean) {
         sessionManager.setDriverAvailable(available)
         _isAvailableFlow.value = available
+        val mob = _profileFlow.value?.mobileNumber
+        if (!mob.isNullOrBlank()) {
+            com.glip.driver.data.remote.SupabaseClient.updateOnlineStatus(mob, available)
+        }
     }
 
     fun setIncomingRequests(list: List<PassengerRequest>) {
