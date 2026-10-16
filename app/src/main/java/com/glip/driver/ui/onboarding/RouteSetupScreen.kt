@@ -546,6 +546,7 @@ fun RouteSetupScreen(
                                         if (prof != null) {
                                             com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
                                                 driverIdentifier = prof.id,
+                                                mobileNumber = prof.mobileNumber,
                                                 destinationName = item.address,
                                                 destLat = resolvedLat,
                                                 destLng = resolvedLng,
@@ -572,6 +573,7 @@ fun RouteSetupScreen(
                                         if (prof != null) {
                                             com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
                                                 driverIdentifier = prof.id,
+                                                mobileNumber = prof.mobileNumber,
                                                 destinationName = item.address,
                                                 destLat = 0.0,
                                                 destLng = 0.0,

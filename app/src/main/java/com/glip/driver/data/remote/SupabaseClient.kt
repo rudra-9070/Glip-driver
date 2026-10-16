@@ -207,6 +207,7 @@ object SupabaseClient {
      */
     suspend fun syncDriverRoute(
         driverIdentifier: String?,
+        mobileNumber: String? = null,
         destinationName: String,
         destLat: Double,
         destLng: Double,
@@ -214,14 +215,31 @@ object SupabaseClient {
     ): Boolean = withContext(Dispatchers.IO) {
         if (destinationName.isBlank() || destLat == 0.0 || destLng == 0.0) return@withContext false
         try {
+            var uuid = if (!driverIdentifier.isNullOrBlank() && isValidUuid(driverIdentifier)) driverIdentifier else null
+            if (uuid == null && !mobileNumber.isNullOrBlank()) {
+                val d = getDriverByMobile(mobileNumber)
+                if (d != null && isValidUuid(d.id)) {
+                    uuid = d.id
+                }
+            }
+
+            // Clean up any stale routes for this driver first
+            if (uuid != null) {
+                try {
+                    val delConn = openConnection("/driver_routes?driver_id=eq.$uuid", "DELETE")
+                    delConn.responseCode
+                    delConn.disconnect()
+                } catch (_: Exception) {}
+            }
+
             val endpoint = "/driver_routes"
             val conn = openConnection(endpoint, "POST")
-            conn.setRequestProperty("Prefer", "resolution=merge-duplicates")
+            conn.setRequestProperty("Prefer", "return=representation")
             conn.doOutput = true
 
             val json = JSONObject().apply {
-                if (!driverIdentifier.isNullOrBlank() && isValidUuid(driverIdentifier)) {
-                    put("driver_id", driverIdentifier)
+                if (uuid != null) {
+                    put("driver_id", uuid)
                 }
                 put("origin_name", "Current Location")
                 put("destination_name", destinationName)
