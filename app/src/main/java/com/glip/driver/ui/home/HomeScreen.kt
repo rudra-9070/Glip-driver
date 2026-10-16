@@ -165,8 +165,23 @@ fun HomeScreen(
     val requests by repository.requestsFlow.collectAsState(initial = emptyList())
     val profile by repository.profileFlow.collectAsState(initial = null)
 
-    val origin = driverRoute?.originName ?: "Motipur"
-    val destination = driverRoute?.destinationName ?: "Baruraj"
+    val origin = driverRoute?.originName ?: "Current Location"
+    val destination = driverRoute?.destinationName ?: ""
+
+    // Sync live driver GPS location and bearing to Supabase in real-time
+    LaunchedEffect(liveLocation, isAvailable) {
+        val loc = liveLocation
+        val prof = profile
+        if (loc != null && loc.latitude != 0.0 && prof != null && prof.mobileNumber.isNotBlank()) {
+            com.glip.driver.data.remote.SupabaseClient.updateLiveLocation(
+                mobileNumber = prof.mobileNumber,
+                lat = loc.latitude,
+                lng = loc.longitude,
+                bearing = loc.bearing,
+                isOnline = isAvailable
+            )
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,

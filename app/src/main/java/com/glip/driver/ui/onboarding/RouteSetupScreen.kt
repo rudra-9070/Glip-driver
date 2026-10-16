@@ -542,6 +542,16 @@ fun RouteSetupScreen(
                                             isActive = true
                                         )
                                         repository.updateRoute(updated)
+                                        val prof = repository.getProfile()
+                                        if (prof != null && prof.mobileNumber.isNotBlank()) {
+                                            com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
+                                                mobileNumber = prof.mobileNumber,
+                                                destinationName = item.address,
+                                                destLat = resolvedLat,
+                                                destLng = resolvedLng,
+                                                isActive = true
+                                            )
+                                        }
                                         Toast.makeText(
                                             context,
                                             "${item.title} activated! Co-passengers can now find your vehicle.",
@@ -558,6 +568,16 @@ fun RouteSetupScreen(
                                             isActive = false
                                         )
                                         repository.updateRoute(updated)
+                                        val prof = repository.getProfile()
+                                        if (prof != null && prof.mobileNumber.isNotBlank()) {
+                                            com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
+                                                mobileNumber = prof.mobileNumber,
+                                                destinationName = item.address,
+                                                destLat = 0.0,
+                                                destLng = 0.0,
+                                                isActive = false
+                                            )
+                                        }
                                         Toast.makeText(context, "${item.title} deactivated.", Toast.LENGTH_SHORT).show()
                                     }
                                 }

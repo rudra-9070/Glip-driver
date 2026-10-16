@@ -64,6 +64,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.glip.driver.data.remote.SupabaseClient
 import com.glip.driver.domain.model.DriverProfile
 import com.glip.driver.domain.model.DriverStatus
 import com.glip.driver.domain.repository.DriverRepository
@@ -414,22 +415,18 @@ fun OtpVerificationScreen(
                 if (enteredCode == currentOtpTarget) {
                     coroutineScope.launch {
                         if (isLogin) {
-                            // Existing account login flow
-                            val existingProfile = repository.getProfile()
-                            if (existingProfile != null && existingProfile.mobileNumber == mobileNumber) {
-                                onVerificationSuccess(false)
-                            } else {
-                                // If profile not in current demo session, restore profile with existing details
-                                val restored = DriverProfile(
-                                    id = "drv_${mobileNumber.takeLast(4)}",
-                                    fullName = if (fullName.isNotBlank()) fullName else "Glip Driver",
-                                    mobileNumber = mobileNumber,
-                                    email = null,
-                                    status = DriverStatus.DEMO_ACTIVE
-                                )
-                                repository.saveProfile(restored)
-                                onVerificationSuccess(false)
-                            }
+                            // Check Supabase for existing driver profile first
+                            val remoteProfile = SupabaseClient.getDriverByMobile(mobileNumber)
+                            val restored = remoteProfile ?: repository.getProfile() ?: DriverProfile(
+                                id = "drv_${mobileNumber.takeLast(4)}",
+                                fullName = if (fullName.isNotBlank()) fullName else "Glip Driver",
+                                mobileNumber = mobileNumber,
+                                email = null,
+                                status = DriverStatus.DEMO_ACTIVE
+                            )
+                            repository.saveProfile(restored)
+                            SupabaseClient.upsertDriverProfile(restored, isOnline = true)
+                            onVerificationSuccess(false)
                         } else {
                             // New Registration flow
                             val newProfile = DriverProfile(
@@ -440,6 +437,7 @@ fun OtpVerificationScreen(
                                 status = DriverStatus.DEMO_ACTIVE
                             )
                             repository.saveProfile(newProfile)
+                            SupabaseClient.upsertDriverProfile(newProfile, isOnline = true)
                             onVerificationSuccess(true)
                         }
                     }
