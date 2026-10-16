@@ -115,11 +115,9 @@ class DemoDriverRepositoryImpl(
             ?: return Result.failure(IllegalArgumentException("Request not found"))
 
         val prof = _profileFlow.value
-        val driverMob = prof?.mobileNumber ?: ""
+        val driverId = prof?.id ?: prof?.mobileNumber
         // Real-time sync to Supabase backend so Passenger App knows driver accepted!
-        if (driverMob.isNotBlank()) {
-            com.glip.driver.data.remote.SupabaseClient.acceptRideRequest(requestId, driverMob)
-        }
+        com.glip.driver.data.remote.SupabaseClient.acceptRideRequest(requestId, driverId)
 
         val currentVehicle = _vehicleFlow.value
         val updatedVehicle = currentVehicle.copy(

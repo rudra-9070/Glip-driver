@@ -543,9 +543,9 @@ fun RouteSetupScreen(
                                         )
                                         repository.updateRoute(updated)
                                         val prof = repository.getProfile()
-                                        if (prof != null && prof.mobileNumber.isNotBlank()) {
+                                        if (prof != null) {
                                             com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
-                                                mobileNumber = prof.mobileNumber,
+                                                driverIdentifier = prof.id,
                                                 destinationName = item.address,
                                                 destLat = resolvedLat,
                                                 destLng = resolvedLng,
@@ -569,9 +569,9 @@ fun RouteSetupScreen(
                                         )
                                         repository.updateRoute(updated)
                                         val prof = repository.getProfile()
-                                        if (prof != null && prof.mobileNumber.isNotBlank()) {
+                                        if (prof != null) {
                                             com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
-                                                mobileNumber = prof.mobileNumber,
+                                                driverIdentifier = prof.id,
                                                 destinationName = item.address,
                                                 destLat = 0.0,
                                                 destLng = 0.0,

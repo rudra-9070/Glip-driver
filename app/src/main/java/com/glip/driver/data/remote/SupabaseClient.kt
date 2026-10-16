@@ -55,6 +55,16 @@ object SupabaseClient {
         return conn
     }
 
+    fun isValidUuid(str: String?): Boolean {
+        if (str.isNullOrBlank()) return false
+        return try {
+            java.util.UUID.fromString(str)
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     /**
      * Upsert driver profile to Supabase `drivers` table on register or login.
      */
@@ -170,13 +180,13 @@ object SupabaseClient {
      * Sync active/saved destination route to Supabase `driver_routes`.
      */
     suspend fun syncDriverRoute(
-        mobileNumber: String,
+        driverIdentifier: String?,
         destinationName: String,
         destLat: Double,
         destLng: Double,
         isActive: Boolean
     ): Boolean = withContext(Dispatchers.IO) {
-        if (mobileNumber.isBlank() || destinationName.isBlank()) return@withContext false
+        if (destinationName.isBlank() || destLat == 0.0 || destLng == 0.0) return@withContext false
         try {
             val endpoint = "/driver_routes"
             val conn = openConnection(endpoint, "POST")
@@ -184,7 +194,9 @@ object SupabaseClient {
             conn.doOutput = true
 
             val json = JSONObject().apply {
-                put("driver_mobile", mobileNumber)
+                if (!driverIdentifier.isNullOrBlank() && isValidUuid(driverIdentifier)) {
+                    put("driver_id", driverIdentifier)
+                }
                 put("origin_name", "Current Location")
                 put("destination_name", destinationName)
                 put("dest_lat", destLat)
@@ -209,7 +221,7 @@ object SupabaseClient {
     /**
      * Fetch real-time pending ride requests submitted by passengers.
      */
-    suspend fun fetchPendingRideRequests(driverMobile: String?): List<PassengerRequest> = withContext(Dispatchers.IO) {
+    suspend fun fetchPendingRideRequests(driverIdentifier: String?): List<PassengerRequest> = withContext(Dispatchers.IO) {
         val list = mutableListOf<PassengerRequest>()
         try {
             val endpoint = "/ride_requests?status=in.(PENDING,requested)&order=created_at.desc&limit=10"
@@ -221,7 +233,7 @@ object SupabaseClient {
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
                     val assignedDriver = obj.optString("driver_id", "")
-                    if (assignedDriver.isNotBlank() && driverMobile != null && assignedDriver != driverMobile) {
+                    if (assignedDriver.isNotBlank() && !driverIdentifier.isNullOrBlank() && assignedDriver != driverIdentifier) {
                         continue
                     }
                     val id = obj.optString("id")
@@ -268,7 +280,7 @@ object SupabaseClient {
     /**
      * Mark a ride request as ACCEPTED by driver in Supabase.
      */
-    suspend fun acceptRideRequest(requestId: String, driverMobile: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun acceptRideRequest(requestId: String, driverIdentifier: String?): Boolean = withContext(Dispatchers.IO) {
         try {
             val endpoint = "/ride_requests?id=eq.$requestId"
             val conn = openConnection(endpoint, "PATCH")
@@ -276,7 +288,9 @@ object SupabaseClient {
 
             val json = JSONObject().apply {
                 put("status", "ACCEPTED")
-                put("driver_id", driverMobile)
+                if (!driverIdentifier.isNullOrBlank() && isValidUuid(driverIdentifier)) {
+                    put("driver_id", driverIdentifier)
+                }
             }
 
             OutputStreamWriter(conn.outputStream).use { writer ->

@@ -194,10 +194,10 @@ fun HomeScreen(
     LaunchedEffect(isAvailable, profile) {
         if (!isAvailable) return@LaunchedEffect
         val prof = profile
-        val mob = prof?.mobileNumber
+        val driverIdentifier = prof?.id ?: prof?.mobileNumber
         while (true) {
             try {
-                val realRequests = com.glip.driver.data.remote.SupabaseClient.fetchPendingRideRequests(mob)
+                val realRequests = com.glip.driver.data.remote.SupabaseClient.fetchPendingRideRequests(driverIdentifier)
                 repository.setIncomingRequests(realRequests)
             } catch (e: Exception) {}
             kotlinx.coroutines.delay(3000L) // Poll every 3 seconds for instant response
