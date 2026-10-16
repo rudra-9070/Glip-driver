@@ -124,10 +124,14 @@ class DemoDriverRepositoryImpl(
         com.glip.driver.data.remote.SupabaseClient.acceptRideRequest(requestId, driverId)
 
         val currentVehicle = _vehicleFlow.value
+        val newOccupied = (currentVehicle.occupiedSeats + req.requestedSeats).coerceAtMost(currentVehicle.totalCapacity)
+        val newAvailable = (currentVehicle.totalCapacity - newOccupied).coerceAtLeast(0)
         val updatedVehicle = currentVehicle.copy(
-            occupiedSeats = (currentVehicle.occupiedSeats + req.requestedSeats).coerceAtMost(currentVehicle.totalCapacity)
+            occupiedSeats = newOccupied,
+            availableSeats = newAvailable
         )
         updateVehicle(updatedVehicle)
+        com.glip.driver.data.remote.SupabaseClient.updateDriverSeats(driverId, newAvailable)
 
         val newTrip = DemoTrip(
             id = "trip_${System.currentTimeMillis()}",
@@ -180,7 +184,11 @@ class DemoDriverRepositoryImpl(
                 ) {
                     val v = _vehicleFlow.value
                     val newOccupied = (v.occupiedSeats - trip.requestedSeats).coerceAtLeast(0)
-                    _vehicleFlow.value = v.copy(occupiedSeats = newOccupied)
+                    val newAvailable = (v.totalCapacity - newOccupied).coerceAtLeast(0)
+                    _vehicleFlow.value = v.copy(
+                        occupiedSeats = newOccupied,
+                        availableSeats = newAvailable
+                    )
                     recomputePassengerRequests()
                 }
                 trip.copy(status = newStatus)

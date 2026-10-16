@@ -16,12 +16,11 @@ data class Vehicle(
     val registrationNumberDisplay: String = "DL-01-DEMO-99", // Clearly marked demo
     val totalCapacity: Int,
     val occupiedSeats: Int,
-    val availableSeats: Int = totalCapacity - occupiedSeats
+    val availableSeats: Int = (totalCapacity - occupiedSeats).coerceAtLeast(0)
 ) {
     init {
         require(totalCapacity > 0) { "Capacity must be positive." }
         require(occupiedSeats >= 0) { "Occupied seats cannot be negative." }
         require(occupiedSeats <= totalCapacity) { "Occupied seats cannot exceed total capacity." }
-        require(availableSeats == totalCapacity - occupiedSeats) { "Available seats must equal capacity minus occupied seats." }
     }
 }

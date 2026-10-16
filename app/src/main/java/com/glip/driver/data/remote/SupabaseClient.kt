@@ -42,6 +42,27 @@ object SupabaseClient {
         return sdf.format(Date())
     }
 
+    private fun getIsoTimestampMinusSeconds(seconds: Long): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+        sdf.timeZone = TimeZone.getTimeZone("UTC")
+        return sdf.format(Date(System.currentTimeMillis() - (seconds * 1000L)))
+    }
+
+    private fun isTimestampFresh(isoTimestamp: String, maxAgeSeconds: Long = 90): Boolean {
+        if (isoTimestamp.isBlank()) return false
+        return try {
+            val clean = isoTimestamp.substringBefore('.').substringBefore('+').substringBefore('Z')
+            val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            val date = sdf.parse(clean) ?: return false
+            val ageMs = System.currentTimeMillis() - date.time
+            ageMs in -5000L..(maxAgeSeconds * 1000L) // Allow small clock skew
+        } catch (_: Exception) {
+            true
+        }
+    }
+
     private fun openConnection(endpoint: String, method: String): HttpURLConnection {
         val url = URL("$REST_BASE$endpoint")
         val conn = url.openConnection() as HttpURLConnection
@@ -272,7 +293,9 @@ object SupabaseClient {
     ): List<PassengerRequest> = withContext(Dispatchers.IO) {
         val list = mutableListOf<PassengerRequest>()
         try {
-            val endpoint = "/ride_requests?status=in.(PENDING,requested)&order=created_at.desc&limit=15"
+            // Uber/Rapido real-time filter: ONLY fetch fresh requests created within the last 90 seconds!
+            val cutoffIso = getIsoTimestampMinusSeconds(90)
+            val endpoint = "/ride_requests?status=in.(PENDING,requested)&created_at=gte.$cutoffIso&order=created_at.desc&limit=10"
             val conn = openConnection(endpoint, "GET")
             val code = conn.responseCode
             if (code in 200..299) {
@@ -280,6 +303,10 @@ object SupabaseClient {
                 val arr = JSONArray(response)
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
+                    val createdAt = obj.optString("created_at", "")
+                    if (!isTimestampFresh(createdAt, maxAgeSeconds = 90)) {
+                        continue // Discard stale/expired requests from earlier
+                    }
                     val assignedDriver = obj.optString("driver_id", "").trim()
                     
                     // Match logic:
@@ -381,6 +408,32 @@ object SupabaseClient {
             conn.responseCode in 200..299
         } catch (e: Exception) {
             Log.w(TAG, "declineRideRequest error: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Update available seats count for driver in Supabase drivers table.
+     */
+    suspend fun updateDriverSeats(driverIdentifier: String?, availableSeats: Int): Boolean = withContext(Dispatchers.IO) {
+        if (driverIdentifier.isNullOrBlank()) return@withContext false
+        try {
+            val filter = if (isValidUuid(driverIdentifier)) "id=eq.$driverIdentifier" else "mobile_number=eq.$driverIdentifier"
+            val conn = openConnection("/drivers?$filter", "PATCH")
+            conn.doOutput = true
+
+            val json = JSONObject().apply {
+                put("available_seats", availableSeats)
+                put("last_updated_at", getIsoTimestamp())
+            }
+
+            OutputStreamWriter(conn.outputStream).use { writer ->
+                writer.write(json.toString())
+                writer.flush()
+            }
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            Log.w(TAG, "updateDriverSeats error: ${e.message}")
             false
         }
     }
