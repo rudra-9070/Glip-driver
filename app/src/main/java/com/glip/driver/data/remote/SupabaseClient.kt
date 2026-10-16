@@ -60,7 +60,7 @@ object SupabaseClient {
         return try {
             java.util.UUID.fromString(str)
             true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             false
         }
     }
@@ -229,7 +229,7 @@ object SupabaseClient {
                     val delConn = openConnection("/driver_routes?driver_id=eq.$uuid", "DELETE")
                     delConn.responseCode
                     delConn.disconnect()
-                } catch (_: Exception) {}
+                } catch (e: Exception) {}
             }
 
             val endpoint = "/driver_routes"

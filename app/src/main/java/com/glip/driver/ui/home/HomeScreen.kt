@@ -103,7 +103,7 @@ fun playRideRequestAlert(context: android.content.Context, passengerName: String
         val notificationUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         val ringtone = RingtoneManager.getRingtone(context, notificationUri)
         ringtone?.play()
-    } catch (_: Exception) {}
+    } catch (e: Exception) {}
 
     try {
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -119,7 +119,7 @@ fun playRideRequestAlert(context: android.content.Context, passengerName: String
             @Suppress("DEPRECATION")
             vibrator?.vibrate(longArrayOf(0, 400, 200, 400), -1)
         }
-    } catch (_: Exception) {}
+    } catch (e: Exception) {}
 
     try {
         val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as? NotificationManager
@@ -142,7 +142,7 @@ fun playRideRequestAlert(context: android.content.Context, passengerName: String
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
         notificationManager?.notify(101, builder.build())
-    } catch (_: Exception) {}
+    } catch (e: Exception) {}
 }
 
 @Composable
@@ -254,7 +254,7 @@ fun HomeScreen(
                 if (remoteDriver != null && remoteDriver.id != profile?.id) {
                     repository.saveProfile(remoteDriver)
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {}
         }
     }
 
@@ -286,7 +286,7 @@ fun HomeScreen(
                         pickupName = topReq.pickupName
                     )
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {}
             kotlinx.coroutines.delay(2500L) // Poll every 2.5 seconds for instant response
         }
     }
