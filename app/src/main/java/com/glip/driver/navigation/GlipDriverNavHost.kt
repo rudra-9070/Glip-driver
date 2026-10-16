@@ -21,6 +21,11 @@ import com.glip.driver.ui.profile.ProfileScreen
 import com.glip.driver.ui.requests.RequestsScreen
 import com.glip.driver.ui.services.ComingSoonScreen
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.glip.driver.ui.auth.OtpVerificationScreen
+
 @Composable
 fun GlipDriverNavHost(
     navController: NavHostController,
@@ -28,7 +33,12 @@ fun GlipDriverNavHost(
     modifier: Modifier = Modifier
 ) {
     val profile by repository.profileFlow.collectAsState(initial = null)
-    val startDestination = if (profile != null) Screen.Home.route else Screen.Welcome.route
+    val startDestination = if (profile != null) Screen.Home.route else Screen.Register.route
+
+    var otpIsLogin by remember { mutableStateOf(false) }
+    var otpMobileNumber by remember { mutableStateOf("") }
+    var otpFullName by remember { mutableStateOf("") }
+    var otpGeneratedCode by remember { mutableStateOf("") }
 
     NavHost(
         navController = navController,
@@ -46,10 +56,12 @@ fun GlipDriverNavHost(
         composable(Screen.Register.route) {
             RegisterScreen(
                 repository = repository,
-                onRegistrationSuccess = {
-                    navController.navigate(Screen.VehicleSetup.route) {
-                        popUpTo(Screen.Welcome.route) { inclusive = true }
-                    }
+                onNavigateToOtp = { isLogin, mobile, name, otp ->
+                    otpIsLogin = isLogin
+                    otpMobileNumber = mobile
+                    otpFullName = name
+                    otpGeneratedCode = otp
+                    navController.navigate(Screen.OtpVerification.route)
                 },
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
@@ -61,16 +73,39 @@ fun GlipDriverNavHost(
         composable(Screen.Login.route) {
             LoginScreen(
                 repository = repository,
-                onLoginSuccess = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Welcome.route) { inclusive = true }
-                    }
+                onNavigateToOtp = { isLogin, mobile, name, otp ->
+                    otpIsLogin = isLogin
+                    otpMobileNumber = mobile
+                    otpFullName = name
+                    otpGeneratedCode = otp
+                    navController.navigate(Screen.OtpVerification.route)
                 },
                 onNavigateToRegister = {
                     navController.navigate(Screen.Register.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 }
+            )
+        }
+        composable(Screen.OtpVerification.route) {
+            OtpVerificationScreen(
+                repository = repository,
+                isLogin = otpIsLogin,
+                mobileNumber = otpMobileNumber,
+                fullName = otpFullName,
+                expectedOtp = otpGeneratedCode,
+                onVerificationSuccess = { isNewUser ->
+                    if (isNewUser) {
+                        navController.navigate(Screen.VehicleSetup.route) {
+                            popUpTo(Screen.Register.route) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Register.route) { inclusive = true }
+                        }
+                    }
+                },
+                onBack = { navController.popBackStack() }
             )
         }
 

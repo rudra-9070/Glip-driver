@@ -5,6 +5,7 @@ sealed class Screen(val route: String) {
     data object Welcome : Screen("welcome")
     data object Register : Screen("register")
     data object Login : Screen("login")
+    data object OtpVerification : Screen("otp_verification")
     data object VehicleSetup : Screen("vehicle_setup")
     data object RouteSetup : Screen("route_setup")
 

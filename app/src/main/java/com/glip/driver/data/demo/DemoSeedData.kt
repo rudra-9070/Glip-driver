@@ -32,20 +32,16 @@ object DemoSeedData {
     )
 
     fun defaultRoute(): DriverRoute = DriverRoute(
-        id = "rte_delhi_corridor_01",
-        originName = "Connaught Place (Inner Circle)",
-        destinationName = "Noida Sector 18 (Atta Market)",
-        intermediateStops = listOf(
-            RouteStop("st_1", "Pragati Maidan", 1, 28.6180, 77.2420),
-            RouteStop("st_2", "Akshardham Flyover", 2, 28.6127, 77.2773),
-            RouteStop("st_3", "Mayur Vihar Phase 1", 3, 28.6045, 77.2946)
-        ),
-        departureTimeDisplay = "08:45 AM",
+        id = "rte_initial_empty",
+        originName = "Current Location",
+        destinationName = "",
+        intermediateStops = emptyList(),
+        departureTimeDisplay = "",
         direction = RouteDirection.EASTBOUND,
-        originLat = 28.6315,
-        originLng = 77.2167,
-        destLat = 28.5708,
-        destLng = 77.3261,
+        originLat = 0.0,
+        originLng = 0.0,
+        destLat = 0.0,
+        destLng = 0.0,
         isActive = false
     )
 

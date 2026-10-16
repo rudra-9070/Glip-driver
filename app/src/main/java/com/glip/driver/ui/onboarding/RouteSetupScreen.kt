@@ -37,10 +37,9 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -52,6 +51,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -100,6 +100,9 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import java.util.Locale
+import android.content.SharedPreferences
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class SavedDestinationItem(
     val id: String,
@@ -110,6 +113,48 @@ data class SavedDestinationItem(
     val lng: Double = 0.0,
     val isDeletable: Boolean = false
 )
+
+private fun loadSavedDestinations(prefs: SharedPreferences): List<SavedDestinationItem> {
+    val raw = prefs.getString("saved_destinations_json", null) ?: return emptyList()
+    val list = mutableListOf<SavedDestinationItem>()
+    try {
+        val arr = JSONArray(raw)
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            list.add(
+                SavedDestinationItem(
+                    id = obj.optString("id", "dest_$i"),
+                    title = obj.optString("title", ""),
+                    address = obj.optString("address", ""),
+                    iconCategory = obj.optString("iconCategory", "CAR"),
+                    lat = obj.optDouble("lat", 0.0),
+                    lng = obj.optDouble("lng", 0.0),
+                    isDeletable = obj.optBoolean("isDeletable", true)
+                )
+            )
+        }
+    } catch (_: Exception) {}
+    return list
+}
+
+private fun persistSavedDestinations(prefs: SharedPreferences, items: List<SavedDestinationItem>) {
+    try {
+        val arr = JSONArray()
+        for (item in items) {
+            val obj = JSONObject().apply {
+                put("id", item.id)
+                put("title", item.title)
+                put("address", item.address)
+                put("iconCategory", item.iconCategory)
+                put("lat", item.lat)
+                put("lng", item.lng)
+                put("isDeletable", item.isDeletable)
+            }
+            arr.put(obj)
+        }
+        prefs.edit().putString("saved_destinations_json", arr.toString()).apply()
+    } catch (_: Exception) {}
+}
 
 @Composable
 fun RouteSetupScreen(
@@ -134,7 +179,7 @@ fun RouteSetupScreen(
 
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showMapPicker by remember { mutableStateOf(false) }
-    var saveAsFavorite by remember { mutableStateOf(false) }
+    var showSameLocationDialog by remember { mutableStateOf(false) }
 
     val locationManager = remember { DriverLocationManager(context.applicationContext) }
     val liveLocation by locationManager.currentLocation.collectAsState()
@@ -147,9 +192,44 @@ fun RouteSetupScreen(
         }
     }
 
-    // Saved Destinations with On/Off Toggle (User-created favorite routes)
+    val prefs = remember {
+        context.getSharedPreferences("glip_driver_demo_prefs", Context.MODE_PRIVATE)
+    }
+
+    // Saved Destinations with On/Off Toggle (User-created routes)
     val savedDestinations = remember {
-        mutableStateListOf<SavedDestinationItem>()
+        mutableStateListOf<SavedDestinationItem>().apply {
+            addAll(loadSavedDestinations(prefs))
+        }
+    }
+
+    if (showSameLocationDialog) {
+        AlertDialog(
+            onDismissRequest = { showSameLocationDialog = false },
+            title = {
+                Text(
+                    text = "Invalid Destination",
+                    fontWeight = FontWeight.Bold,
+                    color = GlipNavyPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Your Live location and destination is same. Please change and choose a different destination.",
+                    color = Color(0xFF334155),
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showSameLocationDialog = false }
+                ) {
+                    Text("OK", fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -232,41 +312,6 @@ fun RouteSetupScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Favorite Route Checkbox Option
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { saveAsFavorite = !saveAsFavorite }
-                .padding(vertical = 4.dp, horizontal = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = saveAsFavorite,
-                onCheckedChange = { saveAsFavorite = it },
-                colors = CheckboxDefaults.colors(
-                    checkedColor = Color(0xFF0284C7),
-                    uncheckedColor = Color(0xFF94A3B8)
-                )
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Column {
-                Text(
-                    text = "Save as Favorite Route",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = GlipNavyPrimary
-                )
-                Text(
-                    text = "Saved Destinations me add karein quick 1-tap activation ke liye",
-                    fontSize = 11.sp,
-                    color = Color(0xFF64748B)
-                )
-            }
-        }
-
         if (errorMessage != null) {
             Spacer(modifier = Modifier.height(10.dp))
             Surface(
@@ -285,7 +330,7 @@ fun RouteSetupScreen(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // Save Route Button
+        // Save Route Button - Adds to Saved Destinations with On/Off Button (Does NOT force to Map immediately)
         GlipPrimaryButton(
             text = "Save Route",
             onClick = {
@@ -307,45 +352,55 @@ fun RouteSetupScreen(
                         }
                     }
 
-                    // If favorite option checked, add to saved destinations list
-                    if (saveAsFavorite) {
-                        val existingIndex = savedDestinations.indexOfFirst {
-                            it.title.equals(destText, ignoreCase = true) || it.address.equals(destText, ignoreCase = true)
-                        }
-                        if (existingIndex < 0) {
-                            savedDestinations.add(
-                                0,
-                                SavedDestinationItem(
-                                    id = "fav_${System.currentTimeMillis()}",
-                                    title = destText,
-                                    address = destText,
-                                    iconCategory = "CAR",
-                                    lat = resolvedLat,
-                                    lng = resolvedLng,
-                                    isDeletable = true
-                                )
-                            )
+                    // Check if resolved destination is same as current live location
+                    val curGps = liveLocation ?: locationManager.getBestLastKnownLocation()
+                    if (curGps != null && curGps.latitude != 0.0 && resolvedLat != 0.0) {
+                        val results = FloatArray(1)
+                        Location.distanceBetween(curGps.latitude, curGps.longitude, resolvedLat, resolvedLng, results)
+                        if (results[0] < 200) {
+                            showSameLocationDialog = true
+                            return@launch
                         }
                     }
 
-                    val updated = DriverRoute(
-                        id = currentRoute?.id ?: "rte_active_01",
-                        originName = "Current Location",
-                        destinationName = destText,
-                        destLat = resolvedLat,
-                        destLng = resolvedLng,
-                        isActive = true
-                    )
-                    repository.updateRoute(updated)
-                    Toast.makeText(context, "Route saved to $destText!", Toast.LENGTH_SHORT).show()
-                    onSavedOrSkipped()
+                    // Always add to Saved Destinations so it appears below with an On/Off toggle
+                    val existingIndex = savedDestinations.indexOfFirst {
+                        it.title.equals(destText, ignoreCase = true) || it.address.equals(destText, ignoreCase = true)
+                    }
+                    if (existingIndex < 0) {
+                        savedDestinations.add(
+                            0,
+                            SavedDestinationItem(
+                                id = "dest_${System.currentTimeMillis()}",
+                                title = destText,
+                                address = destText,
+                                iconCategory = "CAR",
+                                lat = resolvedLat,
+                                lng = resolvedLng,
+                                isDeletable = true
+                            )
+                        )
+                        persistSavedDestinations(prefs, savedDestinations)
+                    }
+
+                    // Clear input box so user clearly sees the newly added destination in the list below
+                    destination = ""
+                    destLat = 0.0
+                    destLng = 0.0
+                    errorMessage = null
+
+                    Toast.makeText(
+                        context,
+                        "$destText Saved Destinations me add ho gaya! Map par set karne ke liye ON karein.",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Saved Destinations with On/Off Toggle (Broadcast subtitle removed)
+        // Saved Destinations with On/Off Toggle
         Text(
             text = "Saved Destinations",
             style = MaterialTheme.typography.titleMedium.copy(
@@ -366,7 +421,7 @@ fun RouteSetupScreen(
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
                 Text(
-                    text = "No favorite destinations saved yet. Type or pick a destination above and check 'Save as Favorite Route'.",
+                    text = "No saved destinations yet. Type or pick a destination above and tap 'Save Route'.",
                     fontSize = 12.sp,
                     color = Color(0xFF64748B),
                     modifier = Modifier.padding(14.dp)
@@ -492,6 +547,7 @@ fun RouteSetupScreen(
                                             "${item.title} activated! Co-passengers can now find your vehicle.",
                                             Toast.LENGTH_SHORT
                                         ).show()
+                                        onSavedOrSkipped()
                                     }
                                 } else {
                                     // Deactivate route
@@ -515,7 +571,10 @@ fun RouteSetupScreen(
                         )
 
                         if (item.isDeletable) {
-                            IconButton(onClick = { savedDestinations.remove(item) }) {
+                            IconButton(onClick = {
+                                savedDestinations.remove(item)
+                                persistSavedDestinations(prefs, savedDestinations)
+                            }) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Delete Route",
@@ -535,16 +594,9 @@ fun RouteSetupScreen(
 
         // Full Screen Interactive Map Picker Overlay (Zero Dialog, No Window Panning/Jumping)
         if (showMapPicker) {
-            val initialPickerLat = when {
-                destLat != 0.0 -> destLat
-                liveLocation != null && liveLocation!!.latitude != 0.0 -> liveLocation!!.latitude
-                else -> locationManager.getBestLastKnownLocation()?.latitude ?: 21.0974
-            }
-            val initialPickerLng = when {
-                destLng != 0.0 -> destLng
-                liveLocation != null && liveLocation!!.longitude != 0.0 -> liveLocation!!.longitude
-                else -> locationManager.getBestLastKnownLocation()?.longitude ?: 81.0336
-            }
+            val currentGps = liveLocation ?: locationManager.getBestLastKnownLocation()
+            val initialPickerLat = if (currentGps != null && currentGps.latitude != 0.0) currentGps.latitude else 21.0974
+            val initialPickerLng = if (currentGps != null && currentGps.longitude != 0.0) currentGps.longitude else 81.0336
 
             DestinationMapPickerView(
                 driverLiveLocation = liveLocation,
@@ -556,25 +608,6 @@ fun RouteSetupScreen(
                     destLat = lat
                     destLng = lng
                     errorMessage = null
-                    if (saveAsFavorite) {
-                        val existingIndex = savedDestinations.indexOfFirst {
-                            it.title.equals(pickedAddress, ignoreCase = true) || it.address.equals(pickedAddress, ignoreCase = true)
-                        }
-                        if (existingIndex < 0) {
-                            savedDestinations.add(
-                                0,
-                                SavedDestinationItem(
-                                    id = "fav_${System.currentTimeMillis()}",
-                                    title = pickedAddress,
-                                    address = pickedAddress,
-                                    iconCategory = "CAR",
-                                    lat = lat,
-                                    lng = lng,
-                                    isDeletable = true
-                                )
-                            )
-                        }
-                    }
                     showMapPicker = false
                 },
                 onDismiss = { showMapPicker = false }
@@ -607,11 +640,56 @@ fun DestinationMapPickerView(
     var mapViewInstance by remember { mutableStateOf<MapView?>(null) }
     var currentPickedAddress by remember { mutableStateOf("Locating address...") }
     var reverseGeocodeJob by remember { mutableStateOf<Job?>(null) }
+    var showSameLocationDialog by remember { mutableStateOf(false) }
+    var hasCenteredOnLiveGps by remember { mutableStateOf(false) }
 
     // Initial reverse geocode on launch
     LaunchedEffect(initialLat, initialLng) {
         val addr = OsmGeocoderHelper.reverseGeocode(context, initialLat, initialLng)
         currentPickedAddress = addr
+    }
+
+    // Automatically focus on driver's live GPS location as soon as it arrives
+    LaunchedEffect(driverLiveLocation, mapViewInstance) {
+        val loc = driverLiveLocation
+        val mv = mapViewInstance
+        if (loc != null && loc.latitude != 0.0 && mv != null && !hasCenteredOnLiveGps) {
+            hasCenteredOnLiveGps = true
+            val geoPoint = GeoPoint(loc.latitude, loc.longitude)
+            mv.controller.setZoom(17.0)
+            mv.controller.setCenter(geoPoint)
+            val addr = OsmGeocoderHelper.reverseGeocode(context, loc.latitude, loc.longitude)
+            currentPickedAddress = addr
+        }
+    }
+
+    if (showSameLocationDialog) {
+        AlertDialog(
+            onDismissRequest = { showSameLocationDialog = false },
+            title = {
+                Text(
+                    text = "Invalid Destination",
+                    fontWeight = FontWeight.Bold,
+                    color = GlipNavyPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Your Live location and destination is same. Please change and choose a different destination.",
+                    color = Color(0xFF334155),
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showSameLocationDialog = false }
+                ) {
+                    Text("OK", fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 
     fun triggerReverseGeocode() {
@@ -959,6 +1037,18 @@ fun DestinationMapPickerView(
                         val center = mapViewInstance?.mapCenter
                         val lat = center?.latitude ?: initialLat
                         val lng = center?.longitude ?: initialLng
+
+                        // Check if picked location is same as current live location
+                        val curGps = driverLiveLocation ?: locationManager.getBestLastKnownLocation()
+                        if (curGps != null && curGps.latitude != 0.0 && lat != 0.0) {
+                            val results = FloatArray(1)
+                            Location.distanceBetween(curGps.latitude, curGps.longitude, lat, lng, results)
+                            if (results[0] < 200) {
+                                showSameLocationDialog = true
+                                return@GlipPrimaryButton
+                            }
+                        }
+
                         onLocationSelected(currentPickedAddress, lat, lng)
                     }
                 )
