@@ -12,6 +12,8 @@ data class DriverProfile(
     val mobileNumber: String,
     val email: String? = null,
     val photoUrl: String? = null,
+    val licenseNumber: String? = null,
+    val vehiclePlate: String? = null,
     val status: DriverStatus = DriverStatus.DEMO_UNVERIFIED,
     val createdAt: Long = System.currentTimeMillis()
 ) {

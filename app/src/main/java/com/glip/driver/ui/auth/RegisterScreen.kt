@@ -1,5 +1,6 @@
 package com.glip.driver.ui.auth
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,11 +20,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,7 +58,6 @@ fun RegisterScreen(
     onNavigateToLogin: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var fullName by remember { mutableStateOf("") }
     var mobileNumber by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -71,80 +71,70 @@ fun RegisterScreen(
             .verticalScroll(scrollState),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         // Top App Logo
         Image(
             painter = painterResource(id = R.drawable.ic_glip_logo),
             contentDescription = "Glip Logo",
             modifier = Modifier
-                .size(80.dp)
+                .size(76.dp)
                 .clip(RoundedCornerShape(20.dp))
         )
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        // Step 1 Indicator Pill
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFFEFF6FF),
+            border = BorderStroke(1.dp, Color(0xFFBAE6FD))
+        ) {
+            Text(
+                text = "STEP 1 OF 3",
+                color = Color(0xFF0284C7),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Top Header: "Driver Registration" (large & bold)
         Text(
-            text = "Glip Driver",
+            text = "Driver Registration",
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontWeight = FontWeight.ExtraBold,
-                color = GlipNavyPrimary
+                color = GlipNavyPrimary,
+                fontSize = 26.sp
             )
         )
 
         Text(
-            text = "Route-Based Seat Sharing Partner",
-            style = MaterialTheme.typography.bodyMedium.copy(
+            text = "Enter your mobile number to get verification OTP",
+            style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.Medium,
-                color = GlipAccentTeal
+                color = Color(0xFF64748B)
             )
         )
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Card container for form
+        // Form Container
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.Start
         ) {
             Text(
-                text = "Register As New Driver",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = GlipNavyPrimary
-                )
+                text = "Mobile Number *",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = Color(0xFF334155)
             )
-            Text(
-                text = "Enter your details to receive an OTP verification code",
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
-            )
+            Spacer(modifier = Modifier.height(6.dp))
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Full Name Input Box
-            OutlinedTextField(
-                value = fullName,
-                onValueChange = {
-                    fullName = it
-                    errorMessage = null
-                },
-                label = { Text("Driver Name *") },
-                placeholder = { Text("e.g. Ramesh Verma") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        tint = Color(0xFF0284C7)
-                    )
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Mobile Number Input Box
+            // Mobile Number Input Box with +91
             OutlinedTextField(
                 value = mobileNumber,
                 onValueChange = {
@@ -153,8 +143,7 @@ fun RegisterScreen(
                         errorMessage = null
                     }
                 },
-                label = { Text("Mobile Number (India) *") },
-                placeholder = { Text("10-digit mobile number") },
+                placeholder = { Text("10-digit mobile number", color = Color(0xFF94A3B8)) },
                 leadingIcon = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -177,12 +166,18 @@ fun RegisterScreen(
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF0284C7),
+                    unfocusedBorderColor = Color(0xFFCBD5E1),
+                    focusedContainerColor = Color(0xFFF8FAFC),
+                    unfocusedContainerColor = Color(0xFFF8FAFC)
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
 
             if (errorMessage != null) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 Surface(
                     color = Color(0xFFFEE2E2),
                     shape = RoundedCornerShape(8.dp),
@@ -197,51 +192,49 @@ fun RegisterScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(26.dp))
 
-            // Continue Button - Opens Next Page (OTP Verification)
+            // Get OTP Button
             GlipPrimaryButton(
-                text = "Continue / Get OTP",
+                text = "Get OTP",
                 onClick = {
-                    val nameValidation = InputValidationUtil.validateFullName(fullName)
-                    if (!nameValidation.isValid) {
-                        errorMessage = nameValidation.errorMessage
+                    val mobileValid = InputValidationUtil.isValidIndianMobile(mobileNumber)
+                    if (!mobileValid) {
+                        errorMessage = "Please enter a valid 10-digit Indian mobile number."
                         return@GlipPrimaryButton
                     }
-                    val mobileValidation = InputValidationUtil.validateMobileNumber(mobileNumber)
-                    if (!mobileValidation.isValid) {
-                        errorMessage = mobileValidation.errorMessage
-                        return@GlipPrimaryButton
-                    }
-
-                    // Generate safe random 6-digit OTP
-                    val randomOtp = (Random.nextInt(900000) + 100000).toString()
                     errorMessage = null
-                    onNavigateToOtp(false, mobileNumber.trim(), fullName.trim(), randomOtp)
-                }
+
+                    // Generate demo 6-digit OTP
+                    val generatedOtp = (100000 + Random.nextInt(900000)).toString()
+                    onNavigateToOtp(false, mobileNumber.trim(), "", generatedOtp)
+                },
+                modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Already have an account link
+            // Existing Account Login Link
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Already have an account? ",
-                    fontSize = 14.sp,
-                    color = Color(0xFF64748B)
+                    text = "Already have a driver account? ",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
                 )
                 Text(
                     text = "Login",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0284C7),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0284C7)
+                    ),
                     modifier = Modifier.clickable { onNavigateToLogin() }
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(30.dp))
     }
 }

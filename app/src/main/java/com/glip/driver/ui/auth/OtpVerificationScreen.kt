@@ -277,11 +277,28 @@ fun OtpVerificationScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Screen Header
-        Text(
-            text = "OTP Verification",
-            style = MaterialTheme.typography.headlineMedium.copy(
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFFEFF6FF),
+            border = BorderStroke(1.dp, Color(0xFFBAE6FD))
+        ) {
+            Text(
+                text = if (isLogin) "LOGIN VERIFICATION" else "STEP 1 OF 3: OTP",
+                color = Color(0xFF0284C7),
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                color = GlipNavyPrimary
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Driver Registration",
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.ExtraBold,
+                color = GlipNavyPrimary,
+                fontSize = 26.sp
             )
         )
 

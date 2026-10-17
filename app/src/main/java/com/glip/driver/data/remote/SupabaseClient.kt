@@ -103,11 +103,21 @@ object SupabaseClient {
             val json = JSONObject().apply {
                 put("full_name", profile.fullName)
                 put("mobile_number", profile.mobileNumber)
+                if (!profile.licenseNumber.isNullOrBlank()) {
+                    put("license_number", profile.licenseNumber)
+                }
+                if (!profile.vehiclePlate.isNullOrBlank()) {
+                    put("vehicle_plate", profile.vehiclePlate)
+                    put("vehicle_number", profile.vehiclePlate)
+                }
                 if (vehicle != null) {
                     put("vehicle_number", vehicle.registrationNumberDisplay)
+                    put("vehicle_plate", vehicle.registrationNumberDisplay)
                     put("vehicle_model", vehicle.displayName)
+                    put("vehicle_name", vehicle.displayName)
                     put("vehicle_type", vehicle.category.name)
                     put("total_seats", vehicle.totalCapacity)
+                    put("total_capacity", vehicle.totalCapacity)
                     put("available_seats", vehicle.totalCapacity - vehicle.occupiedSeats)
                 }
                 put("is_online", isOnline)
@@ -133,7 +143,8 @@ object SupabaseClient {
      */
     suspend fun getDriverByMobile(mobileNumber: String): DriverProfile? = withContext(Dispatchers.IO) {
         try {
-            val endpoint = "/drivers?mobile_number=eq.$mobileNumber&select=*"
+            val enc = java.net.URLEncoder.encode(mobileNumber.trim(), "UTF-8")
+            val endpoint = "/drivers?mobile_number=eq.$enc&select=*"
             val conn = openConnection(endpoint, "GET")
             val code = conn.responseCode
             if (code in 200..299) {
@@ -143,11 +154,15 @@ object SupabaseClient {
                     val obj = arr.getJSONObject(0)
                     val name = obj.optString("full_name", "Glip Driver")
                     val id = obj.optString("id", "drv_${mobileNumber.takeLast(4)}")
+                    val license = obj.optString("license_number", "").takeIf { it.isNotBlank() }
+                    val plate = obj.optString("vehicle_plate", obj.optString("vehicle_number", "")).takeIf { it.isNotBlank() }
                     return@withContext DriverProfile(
                         id = id,
                         fullName = name,
                         mobileNumber = mobileNumber,
                         email = null,
+                        licenseNumber = license,
+                        vehiclePlate = plate,
                         status = DriverStatus.DEMO_ACTIVE
                     )
                 }
@@ -162,10 +177,19 @@ object SupabaseClient {
     /**
      * Push online/offline status change immediately to Supabase `drivers` table.
      */
-    suspend fun updateOnlineStatus(mobileNumber: String, isOnline: Boolean): Boolean = withContext(Dispatchers.IO) {
-        if (mobileNumber.isBlank()) return@withContext false
+    suspend fun updateOnlineStatus(
+        mobileNumber: String,
+        driverId: String? = null,
+        isOnline: Boolean
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (mobileNumber.isBlank() && driverId.isNullOrBlank()) return@withContext false
         try {
-            val endpoint = "/drivers?mobile_number=eq.$mobileNumber"
+            val endpoint = if (!driverId.isNullOrBlank() && isValidUuid(driverId)) {
+                "/drivers?id=eq.$driverId"
+            } else {
+                val enc = java.net.URLEncoder.encode(mobileNumber.trim(), "UTF-8")
+                "/drivers?mobile_number=eq.$enc"
+            }
             val conn = openConnection(endpoint, "PATCH")
             conn.doOutput = true
 
@@ -178,7 +202,9 @@ object SupabaseClient {
                 writer.write(json.toString())
                 writer.flush()
             }
-            conn.responseCode in 200..299
+            val code = conn.responseCode
+            Log.d(TAG, "updateOnlineStatus code: $code (isOnline=$isOnline)")
+            code in 200..299
         } catch (e: Exception) {
             Log.w(TAG, "updateOnlineStatus failed: ${e.message}")
             false
@@ -191,14 +217,20 @@ object SupabaseClient {
      */
     suspend fun updateLiveLocation(
         mobileNumber: String,
+        driverId: String? = null,
         lat: Double,
         lng: Double,
         bearing: Float,
         isOnline: Boolean
     ): Boolean = withContext(Dispatchers.IO) {
-        if (mobileNumber.isBlank() || lat == 0.0 || lng == 0.0) return@withContext false
+        if ((mobileNumber.isBlank() && driverId.isNullOrBlank()) || lat == 0.0 || lng == 0.0) return@withContext false
         try {
-            val endpoint = "/drivers?mobile_number=eq.$mobileNumber"
+            val endpoint = if (!driverId.isNullOrBlank() && isValidUuid(driverId)) {
+                "/drivers?id=eq.$driverId"
+            } else {
+                val enc = java.net.URLEncoder.encode(mobileNumber.trim(), "UTF-8")
+                "/drivers?mobile_number=eq.$enc"
+            }
             val conn = openConnection(endpoint, "PATCH")
             conn.doOutput = true
 

@@ -25,6 +25,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.glip.driver.ui.auth.OtpVerificationScreen
+import com.glip.driver.ui.auth.DriverDetailsScreen
+import com.glip.driver.ui.auth.VehicleCategorySelectScreen
 
 @Composable
 fun GlipDriverNavHost(
@@ -39,6 +41,10 @@ fun GlipDriverNavHost(
     var otpMobileNumber by remember { mutableStateOf("") }
     var otpFullName by remember { mutableStateOf("") }
     var otpGeneratedCode by remember { mutableStateOf("") }
+
+    var regPersonalName by remember { mutableStateOf("") }
+    var regVehiclePlate by remember { mutableStateOf("") }
+    var regLicenseNumber by remember { mutableStateOf("") }
 
     NavHost(
         navController = navController,
@@ -96,12 +102,10 @@ fun GlipDriverNavHost(
                 expectedOtp = otpGeneratedCode,
                 onVerificationSuccess = { isNewUser ->
                     if (isNewUser) {
-                        navController.navigate(Screen.VehicleSetup.route) {
-                            popUpTo(Screen.Register.route) { inclusive = true }
-                        }
+                        navController.navigate(Screen.DriverDetails.route)
                     } else {
                         navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Register.route) { inclusive = true }
+                            popUpTo(Screen.Welcome.route) { inclusive = true }
                         }
                     }
                 },
@@ -109,12 +113,42 @@ fun GlipDriverNavHost(
             )
         }
 
-        // Onboarding Setups
+        // Step 2: Driver & Vehicle Details (Screenshot 1)
+        composable(Screen.DriverDetails.route) {
+            DriverDetailsScreen(
+                initialName = regPersonalName.ifBlank { otpFullName },
+                onBack = { navController.popBackStack() },
+                onNext = { name, plate, license ->
+                    regPersonalName = name
+                    regVehiclePlate = plate
+                    regLicenseNumber = license
+                    navController.navigate(Screen.VehicleCategorySelect.route)
+                }
+            )
+        }
+
+        // Step 3: Vehicle Category (Auto, E-Rickshaw, Car, Van, Mini bus) -> Auto creates vehicle and goes to Home
+        composable(Screen.VehicleCategorySelect.route) {
+            VehicleCategorySelectScreen(
+                repository = repository,
+                mobileNumber = otpMobileNumber,
+                fullName = regPersonalName,
+                vehiclePlate = regVehiclePlate,
+                licenseNumber = regLicenseNumber,
+                onRegistrationComplete = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // Standalone Vehicle Edit (Accessible via Drawer menu pencil icon)
         composable(Screen.VehicleSetup.route) {
             VehicleSetupScreen(
                 repository = repository,
                 onSavedOrSkipped = {
-                    navController.navigate(Screen.RouteSetup.route)
+                    navController.popBackStack()
                 }
             )
         }

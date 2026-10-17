@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOff
@@ -45,6 +46,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -91,6 +93,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.glip.driver.data.repository.DemoDriverRepositoryImpl
+import com.glip.driver.domain.model.VehicleCategory
 import com.glip.driver.location.DriverLocationManager
 import com.glip.driver.map.GlipOsmMapView
 import com.glip.driver.ui.theme.GlipAccentTeal
@@ -244,9 +247,10 @@ fun HomeScreen(
     LaunchedEffect(liveLocation, isAvailable) {
         val loc = liveLocation
         val prof = profile
-        if (loc != null && loc.latitude != 0.0 && prof != null && prof.mobileNumber.isNotBlank()) {
+        if (loc != null && loc.latitude != 0.0 && prof != null && (prof.mobileNumber.isNotBlank() || prof.id.isNotBlank())) {
             com.glip.driver.data.remote.SupabaseClient.updateLiveLocation(
                 mobileNumber = prof.mobileNumber,
+                driverId = prof.id,
                 lat = loc.latitude,
                 lng = loc.longitude,
                 bearing = loc.bearing,
@@ -269,6 +273,7 @@ fun HomeScreen(
     }
 
     var lastSeenRequestId by remember { mutableStateOf<String?>(null) }
+    var isSyncingOnline by remember { mutableStateOf(false) }
 
     // Real-time polling for incoming passenger ride requests whenever driver is ONLINE
     LaunchedEffect(isAvailable, profile) {
@@ -429,6 +434,67 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
 
+                // 3. Vehicle Setup & Edit Card (with Pencil Icon)
+                val currentVeh = vehicle
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = when (currentVeh?.category) {
+                                    VehicleCategory.AUTO_RICKSHAW -> "🛺"
+                                    VehicleCategory.E_RICKSHAW -> "🛺"
+                                    VehicleCategory.CAR -> "🚗"
+                                    VehicleCategory.VAN -> "🚐"
+                                    VehicleCategory.MINI_BUS -> "🚌"
+                                    else -> "🚗"
+                                },
+                                fontSize = 22.sp
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = currentVeh?.displayName?.ifBlank { currentVeh.category.displayName } ?: "My Vehicle",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = GlipNavyPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${currentVeh?.registrationNumberDisplay ?: "Plate"} • ${currentVeh?.totalCapacity ?: 4} Seats",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = {
+                                coroutineScope.launch { drawerState.close() }
+                                onEditVehicle()
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Vehicle",
+                                tint = Color(0xFF0284C7),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.weight(1f))
 
                 // Diagnostics item at bottom of drawer
@@ -469,7 +535,7 @@ fun HomeScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 4.dp),
+                    .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 4.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
@@ -641,23 +707,47 @@ fun HomeScreen(
                                     Spacer(modifier = Modifier.height(18.dp))
                                     Button(
                                         onClick = {
-                                            coroutineScope.launch {
-                                                repository.setAvailable(true)
+                                            if (!isSyncingOnline) {
+                                                isSyncingOnline = true
+                                                coroutineScope.launch {
+                                                    try {
+                                                        repository.setAvailable(true)
+                                                        kotlinx.coroutines.delay(400)
+                                                    } finally {
+                                                        isSyncingOnline = false
+                                                    }
+                                                }
                                             }
                                         },
+                                        enabled = !isSyncingOnline,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(46.dp),
                                         shape = RoundedCornerShape(12.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                                     ) {
-                                        Text(
-                                            text = "GO ONLINE",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            letterSpacing = 0.5.sp
-                                        )
+                                        if (isSyncingOnline) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                strokeWidth = 2.dp,
+                                                color = Color.White
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "CONNECTING...",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
+                                        } else {
+                                            Text(
+                                                text = "GO ONLINE",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White,
+                                                letterSpacing = 0.5.sp
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1126,8 +1216,16 @@ fun HomeScreen(
 
                     Surface(
                         onClick = {
-                            coroutineScope.launch {
-                                repository.setAvailable(!isOnline)
+                            if (!isSyncingOnline) {
+                                isSyncingOnline = true
+                                coroutineScope.launch {
+                                    try {
+                                        repository.setAvailable(!isOnline)
+                                        kotlinx.coroutines.delay(400)
+                                    } finally {
+                                        isSyncingOnline = false
+                                    }
+                                }
                             }
                         },
                         shape = RoundedCornerShape(20.dp),
@@ -1152,9 +1250,9 @@ fun HomeScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = if (isOnline) "ONLINE" else "OFFLINE",
+                                    text = if (isSyncingOnline) "SYNC..." else if (isOnline) "ONLINE" else "OFFLINE",
                                     color = toggleTextColor,
-                                    fontSize = if (isOnline) 11.sp else 10.sp,
+                                    fontSize = if (isSyncingOnline) 9.sp else if (isOnline) 11.sp else 10.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     letterSpacing = 0.5.sp
                                 )
@@ -1175,12 +1273,20 @@ fun HomeScreen(
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isOnline) Color(0xFF16A34A) else Color(0xFF94A3B8))
-                                )
+                                if (isSyncingOnline) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = if (isOnline) Color(0xFF16A34A) else Color(0xFF0284C7)
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isOnline) Color(0xFF16A34A) else Color(0xFF94A3B8))
+                                    )
+                                }
                             }
                         }
                     }
