@@ -138,6 +138,12 @@ class DemoDriverRepositoryImpl(
             requestId = req.id,
             pickupName = req.pickupName,
             dropoffName = req.dropoffName,
+            pickupLat = req.pickupLat,
+            pickupLng = req.pickupLng,
+            dropoffLat = req.dropoffLat,
+            dropoffLng = req.dropoffLng,
+            passengerAlias = req.passengerAlias,
+            passengerMobile = req.passengerMobile,
             requestedSeats = req.requestedSeats,
             scheduledTimeDisplay = req.approximateTime,
             illustrativeFare = req.illustrativeFare,
@@ -176,6 +182,16 @@ class DemoDriverRepositoryImpl(
     override suspend fun getTrips(): List<DemoTrip> = _tripsFlow.value
 
     override suspend fun updateTripStatus(tripId: String, newStatus: DemoTripStatus) {
+        val targetTrip = _tripsFlow.value.find { it.id == tripId }
+        val reqId = targetTrip?.requestId
+        if (!reqId.isNullOrBlank()) {
+            if (newStatus == DemoTripStatus.COMPLETED) {
+                com.glip.driver.data.remote.SupabaseClient.completeRideRequest(reqId)
+            } else if (newStatus == DemoTripStatus.CANCELLED) {
+                com.glip.driver.data.remote.SupabaseClient.cancelRideRequest(reqId)
+            }
+        }
+
         _tripsFlow.value = _tripsFlow.value.map { trip ->
             if (trip.id == tripId) {
                 // If completing or cancelling an accepted trip, return seats
@@ -189,6 +205,9 @@ class DemoDriverRepositoryImpl(
                         occupiedSeats = newOccupied,
                         availableSeats = newAvailable
                     )
+                    val prof = _profileFlow.value
+                    val driverId = prof?.id ?: prof?.mobileNumber
+                    com.glip.driver.data.remote.SupabaseClient.updateDriverSeats(driverId, newAvailable)
                     recomputePassengerRequests()
                 }
                 trip.copy(status = newStatus)

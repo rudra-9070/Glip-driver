@@ -53,6 +53,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import java.io.File
+import com.glip.driver.domain.model.DemoTrip
 import com.glip.driver.domain.model.DriverRoute
 import com.glip.driver.domain.model.PassengerRequest
 import org.osmdroid.config.Configuration
@@ -137,6 +138,7 @@ fun calculateBearing(startLat: Double, startLng: Double, endLat: Double, endLng:
 fun GlipOsmMapView(
     route: DriverRoute?,
     requests: List<PassengerRequest> = emptyList(),
+    activeTrip: DemoTrip? = null,
     driverLiveLocation: Location? = null,
     modifier: Modifier = Modifier
 ) {
@@ -287,9 +289,39 @@ fun GlipOsmMapView(
         }
     }
 
-    // Fetch turn-by-turn road geometry ONLY when driver explicitly activates a route
-    LaunchedEffect(isRouteActive, driverGeoPoint.latitude, driverGeoPoint.longitude, effectiveDestPoint.latitude, effectiveDestPoint.longitude) {
-        if (isRouteActive) {
+    // Fetch turn-by-turn road geometry when:
+    // 1. activeTrip is present (Driver accepted ride -> road route directly to passenger pickup!)
+    // 2. OR when driver has set an active destination corridor
+    LaunchedEffect(isRouteActive, activeTrip, driverGeoPoint.latitude, driverGeoPoint.longitude, effectiveDestPoint.latitude, effectiveDestPoint.longitude) {
+        if (activeTrip != null && activeTrip.pickupLat != 0.0) {
+            originMarkerRef?.isEnabled = true
+            destMarkerRef?.isEnabled = true
+            originMarkerRef?.position = GeoPoint(activeTrip.pickupLat, activeTrip.pickupLng)
+            originMarkerRef?.title = "Pickup: ${activeTrip.passengerAlias}"
+            destMarkerRef?.position = GeoPoint(activeTrip.dropoffLat, activeTrip.dropoffLng)
+            destMarkerRef?.title = "Drop: ${activeTrip.dropoffName}"
+
+            // Fetch road route from Driver to Passenger Pickup
+            val roadResult = OsrmRoutingHelper.fetchRoadRoute(
+                originLat = driverGeoPoint.latitude,
+                originLng = driverGeoPoint.longitude,
+                destLat = activeTrip.pickupLat,
+                destLng = activeTrip.pickupLng
+            )
+
+            if (roadResult != null && roadResult.points.isNotEmpty()) {
+                casingLineRef?.setPoints(roadResult.points)
+                coreLineRef?.setPoints(roadResult.points)
+
+                mapViewRef?.let { mv ->
+                    mv.controller.apply {
+                        setZoom(17.2)
+                        animateTo(driverGeoPoint)
+                    }
+                    mv.invalidate()
+                }
+            }
+        } else if (isRouteActive) {
             originMarkerRef?.isEnabled = true
             destMarkerRef?.isEnabled = true
             destMarkerRef?.position = effectiveDestPoint
@@ -329,14 +361,27 @@ fun GlipOsmMapView(
 
     val passengerMarkersList = remember { mutableListOf<Marker>() }
 
-    // Dynamically update passenger pickup markers whenever requests change
-    LaunchedEffect(requests, mapViewRef) {
+    // Dynamically update passenger pickup markers whenever requests or activeTrip change
+    LaunchedEffect(requests, activeTrip, mapViewRef) {
         val mv = mapViewRef ?: return@LaunchedEffect
         // Remove existing markers
         passengerMarkersList.forEach { mv.overlays.remove(it) }
         passengerMarkersList.clear()
 
-        // Add new green animated pickup markers for co-passengers
+        // 1. Add green animated pickup marker for accepted active passenger
+        if (activeTrip != null && activeTrip.pickupLat != 0.0) {
+            val passMarker = Marker(mv).apply {
+                position = GeoPoint(activeTrip.pickupLat, activeTrip.pickupLng)
+                icon = createPassengerPuck(context)
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                title = "🟢 PICKUP HERE: ${activeTrip.passengerAlias}"
+                snippet = "Pickup location: ${activeTrip.pickupName}"
+            }
+            mv.overlays.add(passMarker)
+            passengerMarkersList.add(passMarker)
+        }
+
+        // 2. Add green animated pickup markers for pending incoming requests along the corridor
         requests.forEach { req ->
             if (req.pickupLat != 0.0 && req.pickupLng != 0.0) {
                 val passMarker = Marker(mv).apply {

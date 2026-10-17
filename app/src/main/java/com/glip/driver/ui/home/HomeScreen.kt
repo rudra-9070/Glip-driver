@@ -1,6 +1,9 @@
 package com.glip.driver.ui.home
 
 import android.Manifest
+import android.content.Intent
+import android.location.Location
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,10 +19,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,8 +39,10 @@ import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -226,6 +234,8 @@ fun HomeScreen(
     val isAvailable by repository.isAvailableFlow.collectAsState(initial = true)
     val requests by repository.requestsFlow.collectAsState(initial = emptyList())
     val profile by repository.profileFlow.collectAsState(initial = null)
+    val trips by repository.tripsFlow.collectAsState(initial = emptyList())
+    val activeTrip = trips.firstOrNull { it.status == com.glip.driver.domain.model.DemoTripStatus.ACCEPTED }
 
     val origin = driverRoute?.originName ?: "Current Location"
     val destination = driverRoute?.destinationName ?: ""
@@ -574,7 +584,8 @@ fun HomeScreen(
                 ) {
                     GlipOsmMapView(
                         route = if (isAvailable) driverRoute else null,
-                        requests = if (isAvailable) requests else emptyList(),
+                        requests = if (isAvailable && activeTrip == null) requests else emptyList(),
+                        activeTrip = activeTrip,
                         driverLiveLocation = liveLocation,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -653,25 +664,20 @@ fun HomeScreen(
                         }
                     }
 
-                    // Rapido / Uber Style Incoming Ride Request Popup
-                    val activePendingReq = if (isAvailable) requests.firstOrNull() else null
-                    if (activePendingReq != null) {
+                    // 1. ACTIVE TRIP IN-FLIGHT NAVIGATION CARD (When driver accepted a passenger)
+                    if (activeTrip != null) {
                         Card(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .fillMaxWidth()
                                 .padding(horizontal = 10.dp, vertical = 10.dp),
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(18.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
                             border = BorderStroke(1.5.dp, Color(0xFF10B981))
                         ) {
-                            Column(
-                                modifier = Modifier.padding(14.dp)
-                            ) {
-                                val isPersonal = activePendingReq.passengerAlias.contains("Personal", ignoreCase = true) || activePendingReq.requestedSeats >= 3
-
-                                // Top row: Green/Gold pulse dot + NEW RIDE REQUEST + Fare badge
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                // Top status row
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -682,27 +688,27 @@ fun HomeScreen(
                                             modifier = Modifier
                                                 .size(10.dp)
                                                 .clip(CircleShape)
-                                                .background(if (isPersonal) Color(0xFFF59E0B) else Color(0xFF10B981))
+                                                .background(Color(0xFF10B981))
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = if (isPersonal) "⭐ PERSONAL RIDE (EXCLUSIVE)" else "NEW RIDE REQUEST",
+                                            text = "NAVIGATING TO PASSENGER",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = if (isPersonal) Color(0xFFB45309) else Color(0xFF15803D),
+                                            color = Color(0xFF15803D),
                                             letterSpacing = 0.5.sp
                                         )
                                     }
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
-                                        color = if (isPersonal) Color(0xFFFEF3C7) else Color(0xFFDCFCE7),
-                                        border = BorderStroke(1.dp, if (isPersonal) Color(0xFFFDE68A) else Color(0xFF86EFAC))
+                                        color = Color(0xFFDCFCE7),
+                                        border = BorderStroke(1.dp, Color(0xFF86EFAC))
                                     ) {
                                         Text(
-                                            text = "₹${activePendingReq.illustrativeFare}",
-                                            fontSize = 14.sp,
+                                            text = "₹${activeTrip.illustrativeFare}",
+                                            fontSize = 15.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (isPersonal) Color(0xFF92400E) else Color(0xFF166534),
+                                            color = Color(0xFF166534),
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                         )
                                     }
@@ -710,37 +716,54 @@ fun HomeScreen(
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                // Passenger Name & Seat Count
+                                // Passenger Name & Quick Call Button
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = activePendingReq.passengerAlias + if (activePendingReq.passengerMobile.isNotBlank()) " (${activePendingReq.passengerMobile})" else "",
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GlipNavyPrimary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = if (isPersonal) Color(0xFFFEF9C3) else Color(0xFFF1F5F9)
-                                    ) {
+                                    Column {
                                         Text(
-                                            text = if (isPersonal) "Full Vehicle (${activePendingReq.requestedSeats} Seats)" else "${activePendingReq.requestedSeats} Seat",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (isPersonal) Color(0xFF854D0E) else Color(0xFF475569),
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            text = activeTrip.passengerAlias,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = GlipNavyPrimary
                                         )
+                                        Text(
+                                            text = "${activeTrip.requestedSeats} Seat${if (activeTrip.requestedSeats > 1) "s" else ""}",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF64748B)
+                                        )
+                                    }
+
+                                    if (activeTrip.passengerMobile.isNotBlank()) {
+                                        Surface(
+                                            onClick = {
+                                                val dialIntent = Intent(Intent.ACTION_DIAL).apply {
+                                                    data = Uri.parse("tel:${activeTrip.passengerMobile}")
+                                                }
+                                                context.startActivity(dialIntent)
+                                            },
+                                            shape = CircleShape,
+                                            color = Color(0xFFDCFCE7),
+                                            border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+                                            modifier = Modifier.size(38.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Phone,
+                                                    contentDescription = "Call Passenger",
+                                                    tint = Color(0xFF15803D),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
 
-                                // Pickup Location
+                                // Pickup location
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         modifier = Modifier
@@ -750,7 +773,7 @@ fun HomeScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = activePendingReq.pickupName.ifBlank { "Pickup Location" },
+                                        text = "Pickup: ${activeTrip.pickupName.ifBlank { "Passenger Location" }}",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = Color(0xFF334155),
@@ -761,7 +784,7 @@ fun HomeScreen(
 
                                 Spacer(modifier = Modifier.height(4.dp))
 
-                                // Dropoff Location
+                                // Dropoff location
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         modifier = Modifier
@@ -771,7 +794,7 @@ fun HomeScreen(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = activePendingReq.dropoffName.ifBlank { "Destination Location" },
+                                        text = "Drop: ${activeTrip.dropoffName.ifBlank { "Destination" }}",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = Color(0xFF334155),
@@ -780,9 +803,9 @@ fun HomeScreen(
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(14.dp))
 
-                                // Action Buttons: Decline vs Accept Ride
+                                // Action Buttons: Cancel vs Complete Ride
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -790,18 +813,18 @@ fun HomeScreen(
                                     OutlinedButton(
                                         onClick = {
                                             coroutineScope.launch {
-                                                repository.declineRequest(activePendingReq.id)
+                                                repository.updateTripStatus(activeTrip.id, com.glip.driver.domain.model.DemoTripStatus.CANCELLED)
                                             }
                                         },
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(40.dp),
+                                            .height(42.dp),
                                         shape = RoundedCornerShape(10.dp),
-                                        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                                        border = BorderStroke(1.dp, Color(0xFFEF4444))
                                     ) {
                                         Text(
-                                            text = "Decline",
-                                            color = Color(0xFF64748B),
+                                            text = "Cancel",
+                                            color = Color(0xFFDC2626),
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 13.sp
                                         )
@@ -810,16 +833,14 @@ fun HomeScreen(
                                     Button(
                                         onClick = {
                                             coroutineScope.launch {
-                                                repository.acceptRequest(activePendingReq.id)
+                                                repository.updateTripStatus(activeTrip.id, com.glip.driver.domain.model.DemoTripStatus.COMPLETED)
                                             }
                                         },
                                         modifier = Modifier
-                                            .weight(1.5f)
-                                            .height(40.dp),
+                                            .weight(1.8f)
+                                            .height(42.dp),
                                         shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFF16A34A)
-                                        )
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(
@@ -830,11 +851,224 @@ fun HomeScreen(
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(
-                                                text = "ACCEPT RIDE",
+                                                text = "COMPLETE RIDE",
                                                 color = Color.White,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 13.sp
                                             )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. INCOMING RIDE REQUEST CARDS (Stacked list matching reference Screenshot 1)
+                    if (activeTrip == null && isAvailable && requests.isNotEmpty()) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .heightIn(max = 380.dp)
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(requests, key = { it.id }) { req ->
+                                val isPersonal = req.passengerAlias.contains("Personal", ignoreCase = true) || req.requestedSeats >= 3
+                                val distToPickup = calculateDistanceKm(
+                                    lat1 = liveLocation?.latitude ?: 0.0,
+                                    lon1 = liveLocation?.longitude ?: 0.0,
+                                    lat2 = req.pickupLat,
+                                    lon2 = req.pickupLng
+                                )
+                                val tripDist = calculateDistanceKm(
+                                    lat1 = req.pickupLat,
+                                    lon1 = req.pickupLng,
+                                    lat2 = req.dropoffLat,
+                                    lon2 = req.dropoffLng
+                                )
+                                val pickupTitle = req.pickupName.split(",").firstOrNull()?.trim() ?: req.pickupName
+                                val dropTitle = req.dropoffName.split(",").firstOrNull()?.trim() ?: req.dropoffName
+
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(18.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                                    ) {
+                                        // Header Row: Big Fare + Badge + Cash
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = "₹${req.illustrativeFare}",
+                                                    fontSize = 26.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = Color(0xFF0F172A)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = if (isPersonal) Color(0xFFFEF3C7) else Color(0xFFF1F5F9),
+                                                    border = BorderStroke(1.dp, if (isPersonal) Color(0xFFFDE68A) else Color(0xFFE2E8F0))
+                                                ) {
+                                                    Text(
+                                                        text = if (isPersonal) "⭐ PERSONAL" else "${req.requestedSeats} SEAT",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (isPersonal) Color(0xFFB45309) else Color(0xFF475569),
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = Color(0xFFF8FAFC),
+                                                border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                                            ) {
+                                                Text(
+                                                    text = "Cash",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = Color(0xFF64748B),
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(12.dp))
+
+                                        // Timeline: Pickup (• X km + title & address)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            Text(
+                                                text = "• ${if (distToPickup > 0) "${distToPickup} km" else "Near you"}",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF0F172A),
+                                                modifier = Modifier.width(76.dp)
+                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = pickupTitle,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF0F172A),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = req.pickupName,
+                                                    fontSize = 11.sp,
+                                                    color = Color(0xFF64748B),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+
+                                        // Vertical connecting line
+                                        Row(modifier = Modifier.fillMaxWidth()) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .padding(start = 4.dp, top = 2.dp, bottom = 2.dp)
+                                                    .width(2.dp)
+                                                    .height(16.dp)
+                                                    .background(Color(0xFFCBD5E1))
+                                            )
+                                        }
+
+                                        // Timeline: Dropoff (▼ Y km + title & address)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            Text(
+                                                text = "▼ ${if (tripDist > 0) "${tripDist} km" else "Drop"}",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF0F172A),
+                                                modifier = Modifier.width(76.dp)
+                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = dropTitle,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF0F172A),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = req.dropoffName,
+                                                    fontSize = 11.sp,
+                                                    color = Color(0xFF64748B),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(14.dp))
+
+                                        // Action buttons: Circular Close (X) + Gold Accept
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Surface(
+                                                onClick = {
+                                                    coroutineScope.launch {
+                                                        repository.declineRequest(req.id)
+                                                    }
+                                                },
+                                                shape = CircleShape,
+                                                color = Color.White,
+                                                border = BorderStroke(1.5.dp, Color(0xFFCBD5E1)),
+                                                modifier = Modifier.size(46.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Close,
+                                                        contentDescription = "Decline Request",
+                                                        tint = Color(0xFF64748B),
+                                                        modifier = Modifier.size(22.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            Button(
+                                                onClick = {
+                                                    coroutineScope.launch {
+                                                        repository.acceptRequest(req.id)
+                                                    }
+                                                },
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(46.dp),
+                                                shape = RoundedCornerShape(12.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = Color(0xFFF5B838)
+                                                )
+                                            ) {
+                                                Text(
+                                                    text = "Accept",
+                                                    color = Color(0xFF0F172A),
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 16.sp
+                                                )
+                                            }
                                         }
                                     }
                                 }

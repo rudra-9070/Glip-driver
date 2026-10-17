@@ -437,5 +437,53 @@ object SupabaseClient {
             false
         }
     }
+
+    /**
+     * Mark a ride request as COMPLETED in Supabase.
+     */
+    suspend fun completeRideRequest(requestId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val endpoint = "/ride_requests?id=eq.$requestId"
+            val conn = openConnection(endpoint, "PATCH")
+            conn.doOutput = true
+
+            val json = JSONObject().apply {
+                put("status", "COMPLETED")
+            }
+
+            OutputStreamWriter(conn.outputStream).use { writer ->
+                writer.write(json.toString())
+                writer.flush()
+            }
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            Log.w(TAG, "completeRideRequest error: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Mark a ride request as CANCELLED in Supabase.
+     */
+    suspend fun cancelRideRequest(requestId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val endpoint = "/ride_requests?id=eq.$requestId"
+            val conn = openConnection(endpoint, "PATCH")
+            conn.doOutput = true
+
+            val json = JSONObject().apply {
+                put("status", "CANCELLED")
+            }
+
+            OutputStreamWriter(conn.outputStream).use { writer ->
+                writer.write(json.toString())
+                writer.flush()
+            }
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            Log.w(TAG, "cancelRideRequest error: ${e.message}")
+            false
+        }
+    }
 }
 
