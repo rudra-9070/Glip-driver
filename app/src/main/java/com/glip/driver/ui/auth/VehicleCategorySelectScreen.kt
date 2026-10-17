@@ -84,23 +84,23 @@ fun VehicleCategorySelectScreen(
             VehicleTypeItem(
                 category = VehicleCategory.AUTO_RICKSHAW,
                 title = "Auto",
-                capacity = 5,
+                capacity = 7,
                 iconEmoji = "🛺",
-                description = "Standard 5-seater route pooling auto"
+                description = "Standard 7-seater route auto (₹27/km)"
             ),
             VehicleTypeItem(
                 category = VehicleCategory.E_RICKSHAW,
                 title = "E - Rickshaw",
-                capacity = 4,
+                capacity = 5,
                 iconEmoji = "🛺",
-                description = "Electric battery rickshaw (4 passengers)"
+                description = "Electric battery rickshaw (5 passengers, ₹22/km)"
             ),
             VehicleTypeItem(
                 category = VehicleCategory.CAR,
-                title = "Car / Hatchback / Sedan",
+                title = "CAB",
                 capacity = 4,
                 iconEmoji = "🚗",
-                description = "4 Passenger seats for shared routes"
+                description = "4 Passenger AC cab / car (₹31/km)"
             ),
             VehicleTypeItem(
                 category = VehicleCategory.VAN,

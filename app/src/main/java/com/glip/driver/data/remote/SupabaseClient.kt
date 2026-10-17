@@ -358,7 +358,7 @@ object SupabaseClient {
         try {
             // Uber/Rapido real-time filter: ONLY fetch fresh requests created within the last 90 seconds!
             val cutoffIso = getIsoTimestampMinusSeconds(90)
-            val endpoint = "/ride_requests?status=in.(PENDING,requested)&created_at=gte.$cutoffIso&order=created_at.desc&limit=10"
+            val endpoint = "/ride_requests?status=in.(PENDING,REQUESTED,pending,requested)&created_at=gte.$cutoffIso&order=created_at.desc&limit=10"
             val conn = openConnection(endpoint, "GET")
             val code = conn.responseCode
             if (code in 200..299) {
@@ -393,7 +393,7 @@ object SupabaseClient {
                     val dLat = obj.optDouble("drop_lat", 0.0)
                     val dLng = obj.optDouble("drop_lng", 0.0)
                     val seats = obj.optInt("requested_seats", 1)
-                    val fare = obj.optDouble("fare_amount", 0.0).toInt().coerceAtLeast(30)
+                    val fare = obj.optDouble("fare_amount", 0.0).toInt().coerceAtLeast(16)
                     val otp = obj.optString("otp", "")
 
                     list.add(

@@ -1,13 +1,13 @@
 package com.glip.driver.domain.model
 
-enum class VehicleCategory(val displayName: String, val defaultCapacity: Int) {
-    BIKE("Bike / Motorcycle", 1),
-    AUTO_RICKSHAW("Auto", 5),
-    E_RICKSHAW("E-Rickshaw", 4),
-    CAR("Car / Hatchback / Sedan", 4),
-    VAN("Van", 7),
-    MINI_BUS("Mini bus", 20),
-    OTHER("Other Vehicle", 4)
+enum class VehicleCategory(val displayName: String, val defaultCapacity: Int, val perKmRate: Int) {
+    BIKE("Bike", 1, 16),
+    E_RICKSHAW("E - Rickshaw", 5, 22),
+    AUTO_RICKSHAW("Auto", 7, 27),
+    CAR("CAB", 4, 31),
+    VAN("Van", 7, 35),
+    MINI_BUS("Mini bus", 20, 40),
+    OTHER("Other Vehicle", 4, 25)
 }
 
 data class Vehicle(

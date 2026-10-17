@@ -311,7 +311,7 @@ fun HomeScreen(
                     )
                 }
             } catch (e: Exception) {}
-            kotlinx.coroutines.delay(2500L) // Poll every 2.5 seconds for instant response
+            kotlinx.coroutines.delay(1800L) // Poll every 1.8 seconds for rapid real-time dispatch
         }
     }
 
