@@ -18,6 +18,8 @@ object InputValidationUtil {
         return ValidationResult(true)
     }
 
+    fun isValidIndianMobile(mobile: String): Boolean = validateMobileNumber(mobile).isValid
+
     fun validateOtp(otp: String): ValidationResult {
         val clean = otp.filter { it.isDigit() }
         if (clean.length != 6) {

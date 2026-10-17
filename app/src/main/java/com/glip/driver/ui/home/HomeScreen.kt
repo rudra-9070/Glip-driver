@@ -1371,3 +1371,10 @@ fun HomeScreen(
         }
     }
 }
+
+private fun calculateDistanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    if (lat1 == 0.0 || lon1 == 0.0 || lat2 == 0.0 || lon2 == 0.0) return 0.0
+    val results = FloatArray(1)
+    Location.distanceBetween(lat1, lon1, lat2, lon2, results)
+    return Math.round((results[0] / 1000.0) * 10.0) / 10.0
+}

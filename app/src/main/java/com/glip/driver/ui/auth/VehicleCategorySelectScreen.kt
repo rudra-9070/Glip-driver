@@ -2,6 +2,7 @@ package com.glip.driver.ui.auth
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -73,6 +74,13 @@ fun VehicleCategorySelectScreen(
 
     val vehicleCategories = remember {
         listOf(
+            VehicleTypeItem(
+                category = VehicleCategory.BIKE,
+                title = "Bike / Motorcycle",
+                capacity = 1,
+                iconEmoji = "🏍️",
+                description = "Solo passenger bike ride"
+            ),
             VehicleTypeItem(
                 category = VehicleCategory.AUTO_RICKSHAW,
                 title = "Auto",
