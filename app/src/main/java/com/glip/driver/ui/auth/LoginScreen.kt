@@ -190,7 +190,7 @@ fun LoginScreen(
                                     .height(44.dp)
                             ) {
                                 Text(
-                                    text = "👉 Click Here to Register First",
+                                    text = "Register Your Account",
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                     fontSize = 13.sp
@@ -224,7 +224,7 @@ fun LoginScreen(
                             if (existingDriver == null) {
                                 isCheckingAccount = false
                                 accountNotFound = true
-                                errorMessage = "Aapka account (+91 ${mobileNumber.trim()}) Supabase database me nahi mila!\n\nNew driver ko pehle 'Driver Registration' karna zaroori hai. Kripya niche diye gaye button se pehle registration karein."
+                                errorMessage = "Your account does not exist. Please register your account first."
                                 return@launch
                             }
 

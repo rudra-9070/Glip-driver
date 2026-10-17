@@ -213,7 +213,7 @@ fun RegisterScreen(
                                     .height(44.dp)
                             ) {
                                 Text(
-                                    text = "👉 Click Here to Log In",
+                                    text = "Log In to Your Account",
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                     fontSize = 13.sp
@@ -246,7 +246,7 @@ fun RegisterScreen(
                             if (existing != null) {
                                 isChecking = false
                                 alreadyRegistered = true
-                                errorMessage = "Yeh number (+91 ${mobileNumber.trim()}) pehle se registered hai! Naya account banane ki zaroorat nahi hai. Kripya niche diye gaye button se 'Login' karein."
+                                errorMessage = "Account already exists. Please log in."
                                 return@launch
                             }
                             isChecking = false

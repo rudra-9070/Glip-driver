@@ -435,7 +435,7 @@ fun OtpVerificationScreen(
                             // Check Supabase for existing driver profile and vehicle
                             val remoteDriverData = SupabaseClient.getDriverWithVehicleByMobile(mobileNumber)
                             if (remoteDriverData == null) {
-                                errorMessage = "Aapka account database me nahi mila! Kripya pehle Driver Registration karein."
+                                errorMessage = "Your account does not exist. Please register your account first."
                                 return@launch
                             }
                             val restoredProfile = remoteDriverData.first

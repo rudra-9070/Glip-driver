@@ -11,8 +11,8 @@ android {
         applicationId = "com.glip.driver"
         minSdk = 24
         targetSdk = 34
-        versionCode = 26
-        versionName = "1.2.4"
+        versionCode = 27
+        versionName = "1.2.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -28,6 +28,7 @@ android {
             keyPassword = "android"
             enableV1Signing = true
             enableV2Signing = true
+            enableV3Signing = true
         }
     }
 
