@@ -23,9 +23,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.TextStyle
+import kotlinx.coroutines.Dispatchers
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -43,6 +46,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -167,6 +171,16 @@ fun RouteSetupScreen(
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
+    var origin by remember(currentRoute) {
+        mutableStateOf(currentRoute?.originName?.takeIf { it.isNotBlank() && it != "Current Location" } ?: "")
+    }
+    var originLat by remember(currentRoute) {
+        mutableStateOf(currentRoute?.originLat ?: 0.0)
+    }
+    var originLng by remember(currentRoute) {
+        mutableStateOf(currentRoute?.originLng ?: 0.0)
+    }
+
     var destination by remember(currentRoute) {
         mutableStateOf(currentRoute?.destinationName ?: "")
     }
@@ -178,12 +192,29 @@ fun RouteSetupScreen(
     }
 
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var showMapPicker by remember { mutableStateOf(false) }
+    var mapPickerTarget by remember { mutableStateOf<String?>(null) } // "pickup", "drop", or null
     var showSameLocationDialog by remember { mutableStateOf(false) }
 
     val locationManager = remember { DriverLocationManager(context.applicationContext) }
     val liveLocation by locationManager.currentLocation.collectAsState()
     val isGpsEnabled by locationManager.isGpsEnabled.collectAsState()
+
+    // Auto-detect and reverse-geocode driver live location into origin pickup location if blank
+    LaunchedEffect(liveLocation) {
+        val loc = liveLocation
+        if (loc != null && origin.isBlank() && loc.latitude != 0.0) {
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val addr = OsmGeocoderHelper.reverseGeocode(context, loc.latitude, loc.longitude)
+                    if (addr.isNotBlank()) {
+                        origin = addr.split(",").firstOrNull()?.trim() ?: addr
+                        originLat = loc.latitude
+                        originLng = loc.longitude
+                    }
+                } catch (e: Exception) {}
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         if (DriverLocationManager.hasLocationPermission(context)) {
@@ -264,53 +295,200 @@ fun RouteSetupScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Single Final Destination Input Box named "Go To Destination" with manual typing & Map button
-        OutlinedTextField(
-            value = destination,
-            onValueChange = {
-                destination = it
-                errorMessage = null
-            },
-            label = { Text("Go To Destination") },
-            placeholder = { Text("Type address or tap map") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Place,
-                    contentDescription = null,
-                    tint = Color(0xFFEF4444)
-                )
-            },
-            trailingIcon = {
-                Surface(
-                    onClick = { showMapPicker = true },
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFEFF6FF),
-                    border = BorderStroke(1.dp, Color(0xFFBAE6FD)),
-                    modifier = Modifier.padding(end = 6.dp)
+        // SCREENSHOT 1: Modern Pickup & Drop Location Selector Card
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Left Timeline Indicator: Green dot -> Vertical Line -> Red dot
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(vertical = 12.dp)
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .size(9.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF10B981))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(1.5.dp)
+                            .height(36.dp)
+                            .background(Color(0xFFCBD5E1))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(9.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEF4444))
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Right Inputs: Pickup row -> Divider -> Drop row
+                Column(modifier = Modifier.weight(1f)) {
+                    // 1. Top: Pickup / Start Location Row
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Map,
-                            contentDescription = "Pick on Map",
-                            tint = Color(0xFF0284C7),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Map",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0284C7)
-                        )
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            BasicTextField(
+                                value = origin,
+                                onValueChange = {
+                                    origin = it
+                                    errorMessage = null
+                                },
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    fontSize = 14.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF0F172A)
+                                ),
+                                decorationBox = { innerTextField ->
+                                    if (origin.isEmpty()) {
+                                        Text(
+                                            text = "Enter Pickup Location",
+                                            fontSize = 14.5.sp,
+                                            fontWeight = FontWeight.Normal,
+                                            color = Color(0xFF94A3B8)
+                                        )
+                                    }
+                                    innerTextField()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        if (origin.isNotEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    origin = ""
+                                    originLat = 0.0
+                                    originLng = 0.0
+                                },
+                                modifier = Modifier.size(26.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = Color(0xFF94A3B8),
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+
+                        // Green Target / MyLocation Icon (Clicking opens Map for pickup)
+                        IconButton(
+                            onClick = {
+                                mapPickerTarget = "pickup"
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MyLocation,
+                                contentDescription = "Pick Pickup on Map",
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(
+                        color = Color(0xFFF1F5F9),
+                        thickness = 1.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // 2. Bottom: Drop / Destination Location Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            BasicTextField(
+                                value = destination,
+                                onValueChange = {
+                                    destination = it
+                                    errorMessage = null
+                                },
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    fontSize = 14.5.sp,
+                                    fontWeight = if (destination.isNotEmpty()) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = Color(0xFF0F172A)
+                                ),
+                                decorationBox = { innerTextField ->
+                                    if (destination.isEmpty()) {
+                                        Text(
+                                            text = "Enter Drop Location",
+                                            fontSize = 14.5.sp,
+                                            fontWeight = FontWeight.Normal,
+                                            color = Color(0xFF94A3B8)
+                                        )
+                                    }
+                                    innerTextField()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        if (destination.isNotEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    destination = ""
+                                    destLat = 0.0
+                                    destLng = 0.0
+                                },
+                                modifier = Modifier.size(26.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = Color(0xFF94A3B8),
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+
+                        // Red Target / MyLocation Icon (Clicking opens Map for drop)
+                        IconButton(
+                            onClick = {
+                                mapPickerTarget = "drop"
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MyLocation,
+                                contentDescription = "Pick Drop on Map",
+                                tint = Color(0xFFEF4444),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
                 }
-            },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+            }
+        }
 
         if (errorMessage != null) {
             Spacer(modifier = Modifier.height(10.dp))
@@ -535,7 +713,9 @@ fun RouteSetupScreen(
 
                                         val updated = DriverRoute(
                                             id = "rte_${item.id}",
-                                            originName = "Current Location",
+                                            originName = origin.ifBlank { "Current Location" },
+                                            originLat = if (originLat != 0.0) originLat else 21.0974,
+                                            originLng = if (originLng != 0.0) originLng else 81.0336,
                                             destinationName = item.address,
                                             destLat = resolvedLat,
                                             destLng = resolvedLng,
@@ -615,10 +795,27 @@ fun RouteSetupScreen(
         }
 
         // Full Screen Interactive Map Picker Overlay (Zero Dialog, No Window Panning/Jumping)
-        if (showMapPicker) {
+        if (mapPickerTarget != null) {
+            val isPickup = mapPickerTarget == "pickup"
             val currentGps = liveLocation ?: locationManager.getBestLastKnownLocation()
-            val initialPickerLat = if (currentGps != null && currentGps.latitude != 0.0) currentGps.latitude else 21.0974
-            val initialPickerLng = if (currentGps != null && currentGps.longitude != 0.0) currentGps.longitude else 81.0336
+            val initialPickerLat = if (isPickup && originLat != 0.0) {
+                originLat
+            } else if (!isPickup && destLat != 0.0) {
+                destLat
+            } else if (currentGps != null && currentGps.latitude != 0.0) {
+                currentGps.latitude
+            } else {
+                21.0974
+            }
+            val initialPickerLng = if (isPickup && originLng != 0.0) {
+                originLng
+            } else if (!isPickup && destLng != 0.0) {
+                destLng
+            } else if (currentGps != null && currentGps.longitude != 0.0) {
+                currentGps.longitude
+            } else {
+                81.0336
+            }
 
             DestinationMapPickerView(
                 driverLiveLocation = liveLocation,
@@ -626,13 +823,19 @@ fun RouteSetupScreen(
                 initialLat = initialPickerLat,
                 initialLng = initialPickerLng,
                 onLocationSelected = { pickedAddress, lat, lng ->
-                    destination = pickedAddress
-                    destLat = lat
-                    destLng = lng
+                    if (isPickup) {
+                        origin = pickedAddress
+                        originLat = lat
+                        originLng = lng
+                    } else {
+                        destination = pickedAddress
+                        destLat = lat
+                        destLng = lng
+                    }
                     errorMessage = null
-                    showMapPicker = false
+                    mapPickerTarget = null
                 },
-                onDismiss = { showMapPicker = false }
+                onDismiss = { mapPickerTarget = null }
             )
         }
     }
