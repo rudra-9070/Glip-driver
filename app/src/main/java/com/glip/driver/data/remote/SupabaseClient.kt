@@ -384,7 +384,8 @@ object SupabaseClient {
                         continue
                     }
                     val id = obj.optString("id")
-                    val passName = obj.optString("passenger_name", "Passenger")
+                    val rawName = obj.optString("passenger_name", "Passenger")
+                    val passName = rawName.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Passenger" }
                     val passMobile = obj.optString("passenger_mobile", "")
                     val pickup = obj.optString("pickup_name", "")
                     val drop = obj.optString("drop_name", "")

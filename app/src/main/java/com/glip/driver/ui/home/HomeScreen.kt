@@ -904,8 +904,9 @@ fun HomeScreen(
                                                         }
                                                         Spacer(modifier = Modifier.width(8.dp))
                                                         Column {
+                                                            val cleanPassenger = trip.passengerAlias.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Rider" }
                                                             Text(
-                                                                text = "Passenger ${index + 1}: ${trip.passengerAlias.ifBlank { "Rider" }}",
+                                                                text = "Passenger ${index + 1}: $cleanPassenger",
                                                                 fontSize = 14.sp,
                                                                 fontWeight = FontWeight.Bold,
                                                                 color = Color(0xFF0F172A),
@@ -1481,8 +1482,9 @@ fun HomeScreen(
                 },
                 text = {
                     Column {
+                        val cleanPassenger = trip.passengerAlias.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Passenger" }
                         Text(
-                            text = "${trip.passengerAlias} se 4-digit ride OTP lein. OTP verify hone par map me passenger pickup marker ki blinking band ho jayegi.",
+                            text = "$cleanPassenger se 4-digit ride OTP lein. OTP verify hone par map me passenger pickup marker ki blinking band ho jayegi.",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )

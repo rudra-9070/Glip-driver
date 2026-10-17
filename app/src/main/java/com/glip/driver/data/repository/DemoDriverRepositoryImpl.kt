@@ -148,7 +148,7 @@ class DemoDriverRepositoryImpl(
             pickupLng = req.pickupLng,
             dropoffLat = req.dropoffLat,
             dropoffLng = req.dropoffLng,
-            passengerAlias = req.passengerAlias,
+            passengerAlias = req.passengerAlias.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Passenger" },
             passengerMobile = req.passengerMobile,
             requestedSeats = req.requestedSeats,
             scheduledTimeDisplay = req.approximateTime,

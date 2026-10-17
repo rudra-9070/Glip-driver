@@ -402,18 +402,19 @@ fun GlipOsmMapView(
 
         // 1. Add Custom Passenger Pickup & Dropoff Markers for each active accepted passenger
         allActiveTrips.forEach { trip ->
+            val cleanAlias = trip.passengerAlias.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Passenger" }
             if (trip.pickupLat != 0.0 && trip.pickupLng != 0.0) {
                 val isAwaiting = !trip.isPickedUp
                 val pickupMarker = Marker(mv).apply {
                     position = GeoPoint(trip.pickupLat, trip.pickupLng)
                     icon = createPassengerPickupBadge(
                         context = context,
-                        passengerName = trip.passengerAlias,
+                        passengerName = cleanAlias,
                         isBlinking = if (isAwaiting) blinkState else false,
                         isPickedUp = trip.isPickedUp
                     )
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    title = if (isAwaiting) "🟢 PICKUP: ${trip.passengerAlias}" else "✔ ONBOARD: ${trip.passengerAlias}"
+                    title = if (isAwaiting) "🟢 PICKUP: $cleanAlias" else "✔ ONBOARD: $cleanAlias"
                     snippet = "Pickup location: ${trip.pickupName}"
                     // Visible blinking animation: alter opacity between phases while awaiting pickup
                     alpha = if (isAwaiting) {
@@ -433,11 +434,11 @@ fun GlipOsmMapView(
                     val dropShortName = trip.dropoffName.split(",").firstOrNull()?.trim() ?: trip.dropoffName
                     icon = createPassengerDropoffBadge(
                         context = context,
-                        passengerName = trip.passengerAlias,
+                        passengerName = cleanAlias,
                         dropName = dropShortName
                     )
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    title = "🔴 DROP: ${trip.passengerAlias}"
+                    title = "🔴 DROP: $cleanAlias"
                     snippet = "Drop location: ${trip.dropoffName}"
                 }
                 mv.overlays.add(dropMarker)
@@ -447,12 +448,13 @@ fun GlipOsmMapView(
 
         // 2. Add green animated pickup markers for pending incoming requests along the corridor
         requests.forEach { req ->
+            val cleanAlias = req.passengerAlias.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Passenger" }
             if (req.pickupLat != 0.0 && req.pickupLng != 0.0) {
                 val passMarker = Marker(mv).apply {
                     position = GeoPoint(req.pickupLat, req.pickupLng)
                     icon = createPassengerPuck(context)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                    title = "Pickup Request: ${req.passengerAlias}"
+                    title = "Pickup Request: $cleanAlias"
                     snippet = "Request: ${req.pickupName}"
                 }
                 mv.overlays.add(passMarker)
@@ -822,7 +824,7 @@ fun createPassengerPickupBadge(
     isPickedUp: Boolean
 ): Drawable {
     val density = context.resources.displayMetrics.density
-    val cleanName = passengerName.ifBlank { "Passenger" }
+    val cleanName = passengerName.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Passenger" }
 
     // Text paint to calculate dynamic width
     val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -967,7 +969,8 @@ fun createPassengerDropoffBadge(
     dropName: String
 ): Drawable {
     val density = context.resources.displayMetrics.density
-    val title = "${passengerName.ifBlank { "Passenger" }} ➔ ${dropName.ifBlank { "Drop" }}"
+    val cleanPassenger = passengerName.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Passenger" }
+    val title = "$cleanPassenger ➔ ${dropName.ifBlank { "Drop" }}"
 
     val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = AndroidColor.parseColor("#0F172A")
