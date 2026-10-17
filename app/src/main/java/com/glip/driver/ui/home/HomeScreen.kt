@@ -669,7 +669,9 @@ fun HomeScreen(
                             Column(
                                 modifier = Modifier.padding(14.dp)
                             ) {
-                                // Top row: Green pulse dot + NEW RIDE REQUEST + Fare badge
+                                val isPersonal = activePendingReq.passengerAlias.contains("Personal", ignoreCase = true) || activePendingReq.requestedSeats >= 3
+
+                                // Top row: Green/Gold pulse dot + NEW RIDE REQUEST + Fare badge
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -680,27 +682,27 @@ fun HomeScreen(
                                             modifier = Modifier
                                                 .size(10.dp)
                                                 .clip(CircleShape)
-                                                .background(Color(0xFF10B981))
+                                                .background(if (isPersonal) Color(0xFFF59E0B) else Color(0xFF10B981))
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "NEW RIDE REQUEST",
+                                            text = if (isPersonal) "⭐ PERSONAL RIDE (EXCLUSIVE)" else "NEW RIDE REQUEST",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = Color(0xFF15803D),
+                                            color = if (isPersonal) Color(0xFFB45309) else Color(0xFF15803D),
                                             letterSpacing = 0.5.sp
                                         )
                                     }
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
-                                        color = Color(0xFFDCFCE7),
-                                        border = BorderStroke(1.dp, Color(0xFF86EFAC))
+                                        color = if (isPersonal) Color(0xFFFEF3C7) else Color(0xFFDCFCE7),
+                                        border = BorderStroke(1.dp, if (isPersonal) Color(0xFFFDE68A) else Color(0xFF86EFAC))
                                     ) {
                                         Text(
                                             text = "₹${activePendingReq.illustrativeFare}",
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF166534),
+                                            color = if (isPersonal) Color(0xFF92400E) else Color(0xFF166534),
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                         )
                                     }
@@ -724,13 +726,13 @@ fun HomeScreen(
                                     )
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFFF1F5F9)
+                                        color = if (isPersonal) Color(0xFFFEF9C3) else Color(0xFFF1F5F9)
                                     ) {
                                         Text(
-                                            text = "${activePendingReq.requestedSeats} Seat",
+                                            text = if (isPersonal) "Full Vehicle (${activePendingReq.requestedSeats} Seats)" else "${activePendingReq.requestedSeats} Seat",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = Color(0xFF475569),
+                                            color = if (isPersonal) Color(0xFF854D0E) else Color(0xFF475569),
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                         )
                                     }
