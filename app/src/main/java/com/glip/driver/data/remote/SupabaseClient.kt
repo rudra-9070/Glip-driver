@@ -363,6 +363,7 @@ object SupabaseClient {
                     val dLng = obj.optDouble("drop_lng", 0.0)
                     val seats = obj.optInt("requested_seats", 1)
                     val fare = obj.optDouble("fare_amount", 0.0).toInt().coerceAtLeast(30)
+                    val otp = obj.optString("otp", "")
 
                     list.add(
                         PassengerRequest(
@@ -382,7 +383,8 @@ object SupabaseClient {
                                 level = CompatibilityLevel.GOOD_MATCH,
                                 explanation = "Passenger along your route corridor",
                                 isCapacityAvailable = true
-                            )
+                            ),
+                            otp = otp
                         )
                     )
                 }

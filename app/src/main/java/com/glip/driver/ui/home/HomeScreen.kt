@@ -26,6 +26,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -238,7 +242,12 @@ fun HomeScreen(
     val requests by repository.requestsFlow.collectAsState(initial = emptyList())
     val profile by repository.profileFlow.collectAsState(initial = null)
     val trips by repository.tripsFlow.collectAsState(initial = emptyList())
-    val activeTrip = trips.firstOrNull { it.status == com.glip.driver.domain.model.DemoTripStatus.ACCEPTED }
+    val activeTrips = trips.filter { it.status == com.glip.driver.domain.model.DemoTripStatus.ACCEPTED }
+    val activeTrip = activeTrips.firstOrNull()
+
+    var verifyingTrip by remember { mutableStateOf<com.glip.driver.domain.model.DemoTrip?>(null) }
+    var enteredOtpText by remember { mutableStateOf("") }
+    var otpErrorMessage by remember { mutableStateOf<String?>(null) }
 
     val origin = driverRoute?.originName ?: "Current Location"
     val destination = driverRoute?.destinationName ?: ""
@@ -650,8 +659,9 @@ fun HomeScreen(
                 ) {
                     GlipOsmMapView(
                         route = if (isAvailable) driverRoute else null,
-                        requests = if (isAvailable && activeTrip == null) requests else emptyList(),
+                        requests = if (isAvailable && activeTrips.isEmpty()) requests else emptyList(),
                         activeTrip = activeTrip,
+                        activeTrips = activeTrips,
                         driverLiveLocation = liveLocation,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -754,20 +764,45 @@ fun HomeScreen(
                         }
                     }
 
-                    // 1. ACTIVE TRIP IN-FLIGHT NAVIGATION CARD (When driver accepted a passenger)
-                    if (activeTrip != null) {
+                    // 1. MULTI-PASSENGER ROUTE POOLING QUEUE (When driver accepted one or more passengers along route)
+                    if (activeTrips.isNotEmpty()) {
+                        val sortedTrips = remember(activeTrips, liveLocation) {
+                            activeTrips.sortedWith(
+                                compareBy<com.glip.driver.domain.model.DemoTrip> { it.isPickedUp }
+                                    .thenBy { trip ->
+                                        if (!trip.isPickedUp) {
+                                            calculateDistanceKm(
+                                                lat1 = liveLocation?.latitude ?: 0.0,
+                                                lon1 = liveLocation?.longitude ?: 0.0,
+                                                lat2 = trip.pickupLat,
+                                                lon2 = trip.pickupLng
+                                            )
+                                        } else {
+                                            calculateDistanceKm(
+                                                lat1 = liveLocation?.latitude ?: 0.0,
+                                                lon1 = liveLocation?.longitude ?: 0.0,
+                                                lat2 = trip.dropoffLat,
+                                                lon2 = trip.dropoffLng
+                                            )
+                                        }
+                                    }
+                            )
+                        }
+
                         Card(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .fillMaxWidth()
-                                .padding(horizontal = 10.dp, vertical = 10.dp),
-                            shape = RoundedCornerShape(18.dp),
+                                .heightIn(max = 420.dp)
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.White),
                             elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
                             border = BorderStroke(1.5.dp, Color(0xFF10B981))
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
-                                // Top status row
+                                // Top status bar: Route Passengers Count + Total Pool Fare
+                                val unboardedCount = activeTrips.count { !it.isPickedUp }
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -782,170 +817,261 @@ fun HomeScreen(
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "NAVIGATING TO PASSENGER",
+                                            text = if (unboardedCount > 0) {
+                                                "PICKING UP PASSENGERS ($unboardedCount PENDING)"
+                                            } else {
+                                                "ON ROUTE: DROPPING PASSENGERS"
+                                            },
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.ExtraBold,
                                             color = Color(0xFF15803D),
                                             letterSpacing = 0.5.sp
                                         )
                                     }
+
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
                                         color = Color(0xFFDCFCE7),
                                         border = BorderStroke(1.dp, Color(0xFF86EFAC))
                                     ) {
+                                        val totalFare = activeTrips.sumOf { it.illustrativeFare }
                                         Text(
-                                            text = "₹${activeTrip.illustrativeFare}",
-                                            fontSize = 15.sp,
+                                            text = "Total ₹$totalFare",
+                                            fontSize = 13.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color(0xFF166534),
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                         )
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                // Passenger Name & Quick Call Button
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                // Pooled Passenger List: Passenger 1 | Drop Location | Distance
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f, fill = false),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Column {
-                                        Text(
-                                            text = activeTrip.passengerAlias,
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = GlipNavyPrimary
+                                    itemsIndexed(sortedTrips, key = { _, trip -> trip.id }) { index, trip ->
+                                        val distToPickup = calculateDistanceKm(
+                                            lat1 = liveLocation?.latitude ?: 0.0,
+                                            lon1 = liveLocation?.longitude ?: 0.0,
+                                            lat2 = trip.pickupLat,
+                                            lon2 = trip.pickupLng
                                         )
-                                        Text(
-                                            text = "${activeTrip.requestedSeats} Seat${if (activeTrip.requestedSeats > 1) "s" else ""}",
-                                            fontSize = 12.sp,
-                                            color = Color(0xFF64748B)
+                                        val distToDrop = calculateDistanceKm(
+                                            lat1 = liveLocation?.latitude ?: 0.0,
+                                            lon1 = liveLocation?.longitude ?: 0.0,
+                                            lat2 = trip.dropoffLat,
+                                            lon2 = trip.dropoffLng
                                         )
-                                    }
 
-                                    if (activeTrip.passengerMobile.isNotBlank()) {
                                         Surface(
-                                            onClick = {
-                                                val dialIntent = Intent(Intent.ACTION_DIAL).apply {
-                                                    data = Uri.parse("tel:${activeTrip.passengerMobile}")
-                                                }
-                                                context.startActivity(dialIntent)
-                                            },
-                                            shape = CircleShape,
-                                            color = Color(0xFFDCFCE7),
-                                            border = BorderStroke(1.dp, Color(0xFF86EFAC)),
-                                            modifier = Modifier.size(38.dp)
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = if (!trip.isPickedUp) Color(0xFFF0FDF4) else Color(0xFFF8FAFC),
+                                            border = BorderStroke(
+                                                width = 1.dp,
+                                                color = if (!trip.isPickedUp) Color(0xFF86EFAC) else Color(0xFFE2E8F0)
+                                            ),
+                                            modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Phone,
-                                                    contentDescription = "Call Passenger",
-                                                    tint = Color(0xFF15803D),
-                                                    modifier = Modifier.size(20.dp)
-                                                )
+                                            Column(modifier = Modifier.padding(10.dp)) {
+                                                // Row 1: Passenger Number + Name + Distance + Drop Location
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Surface(
+                                                            shape = CircleShape,
+                                                            color = if (!trip.isPickedUp) Color(0xFF10B981) else Color(0xFF64748B),
+                                                            modifier = Modifier.size(24.dp)
+                                                        ) {
+                                                            Box(contentAlignment = Alignment.Center) {
+                                                                Text(
+                                                                    text = "${index + 1}",
+                                                                    fontSize = 12.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = Color.White
+                                                                )
+                                                            }
+                                                        }
+                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                        Column {
+                                                            Text(
+                                                                text = "Passenger ${index + 1}: ${trip.passengerAlias.ifBlank { "Rider" }}",
+                                                                fontSize = 14.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color(0xFF0F172A),
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                            Text(
+                                                                text = if (!trip.isPickedUp) {
+                                                                    "📍 Pickup: ${if (distToPickup > 0) "${distToPickup} km away" else "Near your vehicle"}"
+                                                                } else {
+                                                                    "✅ Onboard • ${if (distToDrop > 0) "${distToDrop} km to drop" else "Arrived"}"
+                                                                },
+                                                                fontSize = 11.sp,
+                                                                fontWeight = FontWeight.SemiBold,
+                                                                color = if (!trip.isPickedUp) Color(0xFF16A34A) else Color(0xFF0284C7)
+                                                            )
+                                                        }
+                                                    }
+
+                                                    // Drop Location summary on right side
+                                                    Column(horizontalAlignment = Alignment.End) {
+                                                        Surface(
+                                                            shape = RoundedCornerShape(6.dp),
+                                                            color = Color.White,
+                                                            border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                                                        ) {
+                                                            Text(
+                                                                text = "➔ ${trip.dropoffName.split(",").firstOrNull()?.trim() ?: trip.dropoffName}",
+                                                                fontSize = 12.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color(0xFF334155),
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis,
+                                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                            )
+                                                        }
+                                                        Spacer(modifier = Modifier.height(2.dp))
+                                                        Text(
+                                                            text = "₹${trip.illustrativeFare}",
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.ExtraBold,
+                                                            color = Color(0xFF15803D)
+                                                        )
+                                                    }
+                                                }
+
+                                                Spacer(modifier = Modifier.height(8.dp))
+
+                                                // Row 2: Action Buttons for this passenger
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    // Quick Call Button
+                                                    if (trip.passengerMobile.isNotBlank()) {
+                                                        Surface(
+                                                            onClick = {
+                                                                val dialIntent = Intent(Intent.ACTION_DIAL).apply {
+                                                                    data = Uri.parse("tel:${trip.passengerMobile}")
+                                                                }
+                                                                context.startActivity(dialIntent)
+                                                            },
+                                                            shape = RoundedCornerShape(8.dp),
+                                                            color = Color.White,
+                                                            border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+                                                            modifier = Modifier.size(36.dp)
+                                                        ) {
+                                                            Box(contentAlignment = Alignment.Center) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Phone,
+                                                                    contentDescription = "Call",
+                                                                    tint = Color(0xFF15803D),
+                                                                    modifier = Modifier.size(18.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if (!trip.isPickedUp) {
+                                                        // Cancel button
+                                                        OutlinedButton(
+                                                            onClick = {
+                                                                coroutineScope.launch {
+                                                                    repository.updateTripStatus(trip.id, com.glip.driver.domain.model.DemoTripStatus.CANCELLED)
+                                                                }
+                                                            },
+                                                            modifier = Modifier
+                                                                .weight(1f)
+                                                                .height(36.dp),
+                                                            shape = RoundedCornerShape(8.dp),
+                                                            border = BorderStroke(1.dp, Color(0xFFEF4444)),
+                                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = "Cancel",
+                                                                color = Color(0xFFDC2626),
+                                                                fontSize = 11.sp,
+                                                                fontWeight = FontWeight.SemiBold
+                                                            )
+                                                        }
+
+                                                        // Enter OTP / Pick Up button
+                                                        Button(
+                                                            onClick = {
+                                                                verifyingTrip = trip
+                                                                enteredOtpText = ""
+                                                                otpErrorMessage = null
+                                                            },
+                                                            modifier = Modifier
+                                                                .weight(2.2f)
+                                                                .height(36.dp),
+                                                            shape = RoundedCornerShape(8.dp),
+                                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
+                                                        ) {
+                                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Check,
+                                                                    contentDescription = null,
+                                                                    tint = Color.White,
+                                                                    modifier = Modifier.size(14.dp)
+                                                                )
+                                                                Spacer(modifier = Modifier.width(4.dp))
+                                                                Text(
+                                                                    text = "ENTER OTP / PICK UP",
+                                                                    color = Color.White,
+                                                                    fontSize = 11.sp,
+                                                                    fontWeight = FontWeight.Bold
+                                                                )
+                                                            }
+                                                        }
+                                                    } else {
+                                                        // Passenger is onboard -> Complete Dropoff
+                                                        Button(
+                                                            onClick = {
+                                                                coroutineScope.launch {
+                                                                    repository.updateTripStatus(trip.id, com.glip.driver.domain.model.DemoTripStatus.COMPLETED)
+                                                                }
+                                                            },
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .height(36.dp),
+                                                            shape = RoundedCornerShape(8.dp),
+                                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
+                                                        ) {
+                                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.Check,
+                                                                    contentDescription = null,
+                                                                    tint = Color.White,
+                                                                    modifier = Modifier.size(14.dp)
+                                                                )
+                                                                Spacer(modifier = Modifier.width(4.dp))
+                                                                Text(
+                                                                    text = "DROP PASSENGER (${trip.dropoffName.split(",").firstOrNull()?.trim() ?: "Destination"})",
+                                                                    color = Color.White,
+                                                                    fontSize = 11.sp,
+                                                                    fontWeight = FontWeight.Bold
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
                                             }
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                // Pickup location
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFF10B981))
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Pickup: ${activeTrip.pickupName.ifBlank { "Passenger Location" }}",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color(0xFF334155),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                // Dropoff location
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFFEF4444))
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Drop: ${activeTrip.dropoffName.ifBlank { "Destination" }}",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color(0xFF334155),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                // Action Buttons: Cancel vs Complete Ride
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    OutlinedButton(
-                                        onClick = {
-                                            coroutineScope.launch {
-                                                repository.updateTripStatus(activeTrip.id, com.glip.driver.domain.model.DemoTripStatus.CANCELLED)
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(42.dp),
-                                        shape = RoundedCornerShape(10.dp),
-                                        border = BorderStroke(1.dp, Color(0xFFEF4444))
-                                    ) {
-                                        Text(
-                                            text = "Cancel",
-                                            color = Color(0xFFDC2626),
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 13.sp
-                                        )
-                                    }
-
-                                    Button(
-                                        onClick = {
-                                            coroutineScope.launch {
-                                                repository.updateTripStatus(activeTrip.id, com.glip.driver.domain.model.DemoTripStatus.COMPLETED)
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .weight(1.8f)
-                                            .height(42.dp),
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = null,
-                                                tint = Color.White,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "COMPLETE RIDE",
-                                                color = Color.White,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp
-                                            )
                                         }
                                     }
                                 }
@@ -954,7 +1080,7 @@ fun HomeScreen(
                     }
 
                     // 2. INCOMING RIDE REQUEST CARDS (Stacked list matching reference Screenshot 1)
-                    if (activeTrip == null && isAvailable && requests.isNotEmpty()) {
+                    if (activeTrips.isEmpty() && isAvailable && requests.isNotEmpty()) {
                         LazyColumn(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
@@ -1320,6 +1446,101 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+
+        // 4-Digit Passenger Ride OTP Verification Dialog
+        if (verifyingTrip != null) {
+            val trip = verifyingTrip!!
+            AlertDialog(
+                onDismissRequest = { verifyingTrip = null },
+                shape = RoundedCornerShape(20.dp),
+                containerColor = Color.White,
+                icon = {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFDCFCE7)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                },
+                title = {
+                    Text(
+                        text = "Verify Ride OTP",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A),
+                        fontSize = 18.sp
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            text = "${trip.passengerAlias} se 4-digit ride OTP lein. OTP verify hone par map me passenger pickup marker ki blinking band ho jayegi.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        OutlinedTextField(
+                            value = enteredOtpText,
+                            onValueChange = { if (it.length <= 4) enteredOtpText = it },
+                            label = { Text("4-Digit OTP") },
+                            placeholder = { Text(if (trip.otp.isNotBlank()) "e.g. ${trip.otp}" else "e.g. 1234") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (otpErrorMessage != null) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = otpErrorMessage!!,
+                                color = Color(0xFFDC2626),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                val isMatch = repository.verifyOtpAndPickUp(trip.id, enteredOtpText)
+                                if (isMatch) {
+                                    verifyingTrip = null
+                                } else {
+                                    otpErrorMessage = "Galat OTP! Kripya passenger ka 4-digit OTP enter karein."
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                    ) {
+                        Text("VERIFY & ONBOARD", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = {
+                            // Direct Boarding fallback so driver is never blocked
+                            coroutineScope.launch {
+                                repository.markPassengerPickedUp(trip.id)
+                                verifyingTrip = null
+                            }
+                        }
+                    ) {
+                        Text("DIRECT BOARDING", color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            )
         }
 
         // GPS ON Prompt Dialog - Prompt driver to turn ON GPS whenever it is off

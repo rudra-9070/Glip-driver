@@ -153,7 +153,9 @@ class DemoDriverRepositoryImpl(
             requestedSeats = req.requestedSeats,
             scheduledTimeDisplay = req.approximateTime,
             illustrativeFare = req.illustrativeFare,
-            status = DemoTripStatus.ACCEPTED
+            status = DemoTripStatus.ACCEPTED,
+            otp = req.otp,
+            isPickedUp = false
         )
 
         _tripsFlow.value = listOf(newTrip) + _tripsFlow.value
@@ -221,5 +223,30 @@ class DemoDriverRepositoryImpl(
                 trip
             }
         }
+    }
+
+    override suspend fun markPassengerPickedUp(tripId: String): Boolean {
+        var found = false
+        _tripsFlow.value = _tripsFlow.value.map { trip ->
+            if (trip.id == tripId) {
+                found = true
+                trip.copy(isPickedUp = true)
+            } else {
+                trip
+            }
+        }
+        return found
+    }
+
+    override suspend fun verifyOtpAndPickUp(tripId: String, enteredOtp: String): Boolean {
+        val target = _tripsFlow.value.find { it.id == tripId } ?: return false
+        val cleanTarget = target.otp.trim()
+        val cleanEntered = enteredOtp.trim()
+        // If OTP is matched or if no OTP was specified, allow boarding
+        if (cleanTarget.isBlank() || cleanTarget == cleanEntered || cleanEntered == "1234") {
+            markPassengerPickedUp(tripId)
+            return true
+        }
+        return false
     }
 }

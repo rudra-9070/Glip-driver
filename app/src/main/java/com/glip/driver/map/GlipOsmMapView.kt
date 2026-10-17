@@ -139,11 +139,33 @@ fun GlipOsmMapView(
     route: DriverRoute?,
     requests: List<PassengerRequest> = emptyList(),
     activeTrip: DemoTrip? = null,
+    activeTrips: List<DemoTrip> = emptyList(),
     driverLiveLocation: Location? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    val allActiveTrips = remember(activeTrips, activeTrip) {
+        if (activeTrips.isNotEmpty()) activeTrips else listOfNotNull(activeTrip)
+    }
+
+    // Blinking animation loop: blinks every 550ms for any passenger awaiting pickup
+    var blinkState by remember { mutableStateOf(false) }
+    val hasUnboardedPassengers = remember(allActiveTrips) {
+        allActiveTrips.any { !it.isPickedUp }
+    }
+
+    LaunchedEffect(hasUnboardedPassengers) {
+        if (!hasUnboardedPassengers) {
+            blinkState = false
+            return@LaunchedEffect
+        }
+        while (true) {
+            blinkState = !blinkState
+            kotlinx.coroutines.delay(550L)
+        }
+    }
 
     // Initialize osmdroid configuration with safe internal app storage (Android 10+ scoped storage fix)
     remember {
@@ -290,23 +312,33 @@ fun GlipOsmMapView(
     }
 
     // Fetch turn-by-turn road geometry when:
-    // 1. activeTrip is present (Driver accepted ride -> road route directly to passenger pickup!)
+    // 1. allActiveTrips is present (Driver accepted one or more passengers -> road route to next stop!)
     // 2. OR when driver has set an active destination corridor
-    LaunchedEffect(isRouteActive, activeTrip, driverGeoPoint.latitude, driverGeoPoint.longitude, effectiveDestPoint.latitude, effectiveDestPoint.longitude) {
-        if (activeTrip != null && activeTrip.pickupLat != 0.0) {
-            originMarkerRef?.isEnabled = true
-            destMarkerRef?.isEnabled = true
-            originMarkerRef?.position = GeoPoint(activeTrip.pickupLat, activeTrip.pickupLng)
-            originMarkerRef?.title = "Pickup: ${activeTrip.passengerAlias}"
-            destMarkerRef?.position = GeoPoint(activeTrip.dropoffLat, activeTrip.dropoffLng)
-            destMarkerRef?.title = "Drop: ${activeTrip.dropoffName}"
+    LaunchedEffect(isRouteActive, allActiveTrips, driverGeoPoint.latitude, driverGeoPoint.longitude, effectiveDestPoint.latitude, effectiveDestPoint.longitude) {
+        if (allActiveTrips.isNotEmpty()) {
+            // Hide corridor A/B markers so they never conflict with passenger pickup markers
+            originMarkerRef?.isEnabled = false
+            destMarkerRef?.isEnabled = false
 
-            // Fetch road route from Driver to Passenger Pickup
+            // Target the next upcoming waypoint: closest unboarded passenger pickup, or closest drop
+            val nextUnboarded = allActiveTrips.firstOrNull { !it.isPickedUp && it.pickupLat != 0.0 }
+            val targetPoint = if (nextUnboarded != null) {
+                GeoPoint(nextUnboarded.pickupLat, nextUnboarded.pickupLng)
+            } else {
+                val nextDrop = allActiveTrips.firstOrNull { it.dropoffLat != 0.0 }
+                if (nextDrop != null) {
+                    GeoPoint(nextDrop.dropoffLat, nextDrop.dropoffLng)
+                } else {
+                    effectiveDestPoint
+                }
+            }
+
+            // Fetch road route from Driver to target stop
             val roadResult = OsrmRoutingHelper.fetchRoadRoute(
                 originLat = driverGeoPoint.latitude,
                 originLng = driverGeoPoint.longitude,
-                destLat = activeTrip.pickupLat,
-                destLng = activeTrip.pickupLng
+                destLat = targetPoint.latitude,
+                destLng = targetPoint.longitude
             )
 
             if (roadResult != null && roadResult.points.isNotEmpty()) {
@@ -359,26 +391,58 @@ fun GlipOsmMapView(
         }
     }
 
-    val passengerMarkersList = remember { mutableListOf<Marker>() }
+    val dynamicPassengerMarkers = remember { mutableListOf<Marker>() }
 
-    // Dynamically update passenger pickup markers whenever requests or activeTrip change
-    LaunchedEffect(requests, activeTrip, mapViewRef) {
+    // Dynamically update passenger pickup markers with Passenger Name & Blinking Animation
+    LaunchedEffect(requests, allActiveTrips, blinkState, mapViewRef) {
         val mv = mapViewRef ?: return@LaunchedEffect
-        // Remove existing markers
-        passengerMarkersList.forEach { mv.overlays.remove(it) }
-        passengerMarkersList.clear()
+        // Remove existing dynamic markers
+        dynamicPassengerMarkers.forEach { mv.overlays.remove(it) }
+        dynamicPassengerMarkers.clear()
 
-        // 1. Add green animated pickup marker for accepted active passenger
-        if (activeTrip != null && activeTrip.pickupLat != 0.0) {
-            val passMarker = Marker(mv).apply {
-                position = GeoPoint(activeTrip.pickupLat, activeTrip.pickupLng)
-                icon = createPassengerPuck(context)
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                title = "🟢 PICKUP HERE: ${activeTrip.passengerAlias}"
-                snippet = "Pickup location: ${activeTrip.pickupName}"
+        // 1. Add Custom Passenger Pickup & Dropoff Markers for each active accepted passenger
+        allActiveTrips.forEach { trip ->
+            if (trip.pickupLat != 0.0 && trip.pickupLng != 0.0) {
+                val isAwaiting = !trip.isPickedUp
+                val pickupMarker = Marker(mv).apply {
+                    position = GeoPoint(trip.pickupLat, trip.pickupLng)
+                    icon = createPassengerPickupBadge(
+                        context = context,
+                        passengerName = trip.passengerAlias,
+                        isBlinking = if (isAwaiting) blinkState else false,
+                        isPickedUp = trip.isPickedUp
+                    )
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    title = if (isAwaiting) "🟢 PICKUP: ${trip.passengerAlias}" else "✔ ONBOARD: ${trip.passengerAlias}"
+                    snippet = "Pickup location: ${trip.pickupName}"
+                    // Visible blinking animation: alter opacity between phases while awaiting pickup
+                    alpha = if (isAwaiting) {
+                        if (blinkState) 1.0f else 0.40f
+                    } else {
+                        1.0f
+                    }
+                }
+                mv.overlays.add(pickupMarker)
+                dynamicPassengerMarkers.add(pickupMarker)
             }
-            mv.overlays.add(passMarker)
-            passengerMarkersList.add(passMarker)
+
+            // Dropoff location marker for this passenger
+            if (trip.dropoffLat != 0.0 && trip.dropoffLng != 0.0) {
+                val dropMarker = Marker(mv).apply {
+                    position = GeoPoint(trip.dropoffLat, trip.dropoffLng)
+                    val dropShortName = trip.dropoffName.split(",").firstOrNull()?.trim() ?: trip.dropoffName
+                    icon = createPassengerDropoffBadge(
+                        context = context,
+                        passengerName = trip.passengerAlias,
+                        dropName = dropShortName
+                    )
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    title = "🔴 DROP: ${trip.passengerAlias}"
+                    snippet = "Drop location: ${trip.dropoffName}"
+                }
+                mv.overlays.add(dropMarker)
+                dynamicPassengerMarkers.add(dropMarker)
+            }
         }
 
         // 2. Add green animated pickup markers for pending incoming requests along the corridor
@@ -388,11 +452,11 @@ fun GlipOsmMapView(
                     position = GeoPoint(req.pickupLat, req.pickupLng)
                     icon = createPassengerPuck(context)
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                    title = "Pickup Point: ${req.passengerAlias} (1 Person)"
-                    snippet = "Yahan se 1 passenger baithne wala hai (${req.pickupName})"
+                    title = "Pickup Request: ${req.passengerAlias}"
+                    snippet = "Request: ${req.pickupName}"
                 }
                 mv.overlays.add(passMarker)
-                passengerMarkersList.add(passMarker)
+                dynamicPassengerMarkers.add(passMarker)
             }
         }
         mv.invalidate()
@@ -744,3 +808,231 @@ fun createPassengerPuck(context: Context): Drawable {
 
     return BitmapDrawable(context.resources, bitmap)
 }
+
+/**
+ * Custom High-Visibility Passenger Pickup Badge for Driver Map.
+ * - Displays Passenger Name prominently (no generic 'A' pin!).
+ * - Blinking animated beacon dot and glowing halo while awaiting pickup.
+ * - Stops blinking and turns into a confirmed ONBOARD badge once passenger is picked up.
+ */
+fun createPassengerPickupBadge(
+    context: Context,
+    passengerName: String,
+    isBlinking: Boolean,
+    isPickedUp: Boolean
+): Drawable {
+    val density = context.resources.displayMetrics.density
+    val cleanName = passengerName.ifBlank { "Passenger" }
+
+    // Text paint to calculate dynamic width
+    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = if (isPickedUp) AndroidColor.parseColor("#475569") else AndroidColor.parseColor("#0F172A")
+        textSize = 12f * density
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    }
+    val nameWidth = textPaint.measureText(cleanName)
+
+    val tagPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = if (isPickedUp) AndroidColor.parseColor("#64748B") else AndroidColor.parseColor("#15803D")
+        textSize = 9f * density
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    }
+    val tagText = if (isPickedUp) "ONBOARD" else "PICKUP"
+    val tagWidth = tagPaint.measureText(tagText)
+
+    // Total badge dimensions
+    val horizontalPadding = 10f * density
+    val dotRadius = 4f * density
+    val dotSpace = (dotRadius * 2) + (6f * density)
+    val contentWidth = dotSpace + nameWidth + (8f * density) + tagWidth
+    val badgeWidth = (contentWidth + (horizontalPadding * 2)).coerceAtLeast(85f * density)
+    val badgeHeight = 36f * density
+    val pointerHeight = 8f * density
+    val totalHeight = badgeHeight + pointerHeight
+
+    val bitmap = Bitmap.createBitmap(badgeWidth.toInt(), totalHeight.toInt(), Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val cx = badgeWidth / 2f
+    val badgeRect = android.graphics.RectF(0f, 0f, badgeWidth, badgeHeight)
+    val cornerRadius = 10f * density
+
+    // 1. Pulsing Outer Aura if Blinking
+    if (isBlinking && !isPickedUp) {
+        val auraPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = AndroidColor.parseColor("#34D399")
+            style = Paint.Style.STROKE
+            strokeWidth = 3f * density
+            alpha = 200
+        }
+        val auraRect = android.graphics.RectF(
+            1.5f * density, 1.5f * density,
+            badgeWidth - 1.5f * density, badgeHeight - 1.5f * density
+        )
+        canvas.drawRoundRect(auraRect, cornerRadius + 2f, cornerRadius + 2f, auraPaint)
+    }
+
+    // 2. White or Light Grey Card Background
+    val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = if (isPickedUp) AndroidColor.parseColor("#F1F5F9") else AndroidColor.WHITE
+        style = Paint.Style.FILL
+    }
+    canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, bgPaint)
+
+    // 3. Card Border
+    val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = if (isPickedUp) {
+            AndroidColor.parseColor("#CBD5E1")
+        } else if (isBlinking) {
+            AndroidColor.parseColor("#10B981")
+        } else {
+            AndroidColor.parseColor("#059669")
+        }
+        style = Paint.Style.STROKE
+        strokeWidth = if (isBlinking && !isPickedUp) 2.2f * density else 1.5f * density
+    }
+    canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, borderPaint)
+
+    // 4. Bottom Pointer Triangle (pointing to the exact GPS coordinate)
+    val pointerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = if (isPickedUp) AndroidColor.parseColor("#94A3B8") else AndroidColor.parseColor("#10B981")
+        style = Paint.Style.FILL
+    }
+    val pointerPath = Path().apply {
+        moveTo(cx - (6f * density), badgeHeight - 1f)
+        lineTo(cx + (6f * density), badgeHeight - 1f)
+        lineTo(cx, totalHeight)
+        close()
+    }
+    canvas.drawPath(pointerPath, pointerPaint)
+
+    // 5. Left Indicator Dot (Green blinking beacon or Onboard indicator)
+    val dotCx = horizontalPadding + dotRadius
+    val dotCy = badgeHeight / 2f
+    if (!isPickedUp) {
+        val beaconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (isBlinking) AndroidColor.parseColor("#10B981") else AndroidColor.parseColor("#059669")
+            style = Paint.Style.FILL
+        }
+        canvas.drawCircle(dotCx, dotCy, dotRadius, beaconPaint)
+
+        // Subtle glow ring around beacon
+        if (isBlinking) {
+            val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = AndroidColor.parseColor("#6EE7B7")
+                style = Paint.Style.STROKE
+                strokeWidth = 1.5f * density
+            }
+            canvas.drawCircle(dotCx, dotCy, dotRadius + (2f * density), ringPaint)
+        }
+    } else {
+        val checkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = AndroidColor.parseColor("#059669")
+            style = Paint.Style.FILL
+        }
+        canvas.drawCircle(dotCx, dotCy, dotRadius, checkPaint)
+    }
+
+    // 6. Draw Passenger Name
+    val nameStartX = dotCx + dotRadius + (6f * density)
+    val nameY = (badgeHeight / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2f)
+    canvas.drawText(cleanName, nameStartX, nameY, textPaint)
+
+    // 7. Draw Tag Pill (PICKUP or ONBOARD)
+    val tagStartX = nameStartX + nameWidth + (8f * density)
+    val tagBgRect = android.graphics.RectF(
+        tagStartX - (4f * density),
+        (badgeHeight / 2f) - (8f * density),
+        tagStartX + tagWidth + (4f * density),
+        (badgeHeight / 2f) + (8f * density)
+    )
+    val tagBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = if (isPickedUp) AndroidColor.parseColor("#E2E8F0") else AndroidColor.parseColor("#DCFCE7")
+        style = Paint.Style.FILL
+    }
+    canvas.drawRoundRect(tagBgRect, 4f * density, 4f * density, tagBgPaint)
+
+    val tagY = (badgeHeight / 2f) - ((tagPaint.descent() + tagPaint.ascent()) / 2f)
+    canvas.drawText(tagText, tagStartX, tagY, tagPaint)
+
+    return BitmapDrawable(context.resources, bitmap)
+}
+
+/**
+ * Custom Dropoff Badge for each pooled passenger.
+ */
+fun createPassengerDropoffBadge(
+    context: Context,
+    passengerName: String,
+    dropName: String
+): Drawable {
+    val density = context.resources.displayMetrics.density
+    val title = "${passengerName.ifBlank { "Passenger" }} ➔ ${dropName.ifBlank { "Drop" }}"
+
+    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.parseColor("#0F172A")
+        textSize = 11f * density
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    }
+    val titleWidth = textPaint.measureText(title)
+
+    val horizontalPadding = 10f * density
+    val dotRadius = 3.5f * density
+    val dotSpace = (dotRadius * 2) + (6f * density)
+    val badgeWidth = (titleWidth + dotSpace + (horizontalPadding * 2)).coerceAtLeast(80f * density)
+    val badgeHeight = 32f * density
+    val pointerHeight = 7f * density
+    val totalHeight = badgeHeight + pointerHeight
+
+    val bitmap = Bitmap.createBitmap(badgeWidth.toInt(), totalHeight.toInt(), Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val cx = badgeWidth / 2f
+    val badgeRect = android.graphics.RectF(0f, 0f, badgeWidth, badgeHeight)
+    val cornerRadius = 8f * density
+
+    // White Card Background
+    val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.WHITE
+        style = Paint.Style.FILL
+    }
+    canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, bgPaint)
+
+    // Red Border
+    val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.parseColor("#EF4444")
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f * density
+    }
+    canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, borderPaint)
+
+    // Red Pointer Triangle
+    val pointerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.parseColor("#EF4444")
+        style = Paint.Style.FILL
+    }
+    val pointerPath = Path().apply {
+        moveTo(cx - (5f * density), badgeHeight - 1f)
+        lineTo(cx + (5f * density), badgeHeight - 1f)
+        lineTo(cx, totalHeight)
+        close()
+    }
+    canvas.drawPath(pointerPath, pointerPaint)
+
+    // Red beacon dot
+    val dotCx = horizontalPadding + dotRadius
+    val dotCy = badgeHeight / 2f
+    val redDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = AndroidColor.parseColor("#DC2626")
+        style = Paint.Style.FILL
+    }
+    canvas.drawCircle(dotCx, dotCy, dotRadius, redDotPaint)
+
+    // Title text
+    val textStartX = dotCx + dotRadius + (6f * density)
+    val textY = (badgeHeight / 2f) - ((textPaint.descent() + textPaint.ascent()) / 2f)
+    canvas.drawText(title, textStartX, textY, textPaint)
+
+    return BitmapDrawable(context.resources, bitmap)
+}
+

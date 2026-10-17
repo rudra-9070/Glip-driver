@@ -26,5 +26,6 @@ data class PassengerRequest(
     val requestedSeats: Int,
     val approximateTime: String,
     val illustrativeFare: Int, // Demo INR
-    val matchResult: RouteMatchResult
+    val matchResult: RouteMatchResult,
+    val otp: String = ""
 )

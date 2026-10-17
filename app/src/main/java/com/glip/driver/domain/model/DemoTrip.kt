@@ -22,5 +22,7 @@ data class DemoTrip(
     val scheduledTimeDisplay: String,
     val illustrativeFare: Int,
     val status: DemoTripStatus,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val otp: String = "",
+    val isPickedUp: Boolean = false
 )

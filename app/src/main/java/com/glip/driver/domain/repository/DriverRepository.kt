@@ -45,4 +45,6 @@ interface DriverRepository {
     val tripsFlow: Flow<List<DemoTrip>>
     suspend fun getTrips(): List<DemoTrip>
     suspend fun updateTripStatus(tripId: String, newStatus: DemoTripStatus)
+    suspend fun markPassengerPickedUp(tripId: String): Boolean
+    suspend fun verifyOtpAndPickUp(tripId: String, enteredOtp: String): Boolean
 }
