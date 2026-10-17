@@ -4,6 +4,7 @@ import android.util.Log
 import com.glip.driver.domain.model.DriverProfile
 import com.glip.driver.domain.model.DriverStatus
 import com.glip.driver.domain.model.Vehicle
+import com.glip.driver.domain.model.VehicleCategory
 import com.glip.driver.domain.model.PassengerRequest
 import com.glip.driver.domain.model.RouteMatchResult
 import com.glip.driver.domain.model.CompatibilityLevel
@@ -139,9 +140,10 @@ object SupabaseClient {
     }
 
     /**
-     * Look up existing driver by mobile number for account recovery ("I already have an account").
+     * Look up existing driver and associated vehicle by mobile number for account recovery ("I already have an account").
+     * Returns Pair(profile, vehicle) if found in Supabase `drivers` table, or null if driver does not exist.
      */
-    suspend fun getDriverByMobile(mobileNumber: String): DriverProfile? = withContext(Dispatchers.IO) {
+    suspend fun getDriverWithVehicleByMobile(mobileNumber: String): Pair<DriverProfile, Vehicle?>? = withContext(Dispatchers.IO) {
         try {
             val enc = java.net.URLEncoder.encode(mobileNumber.trim(), "UTF-8")
             val endpoint = "/drivers?mobile_number=eq.$enc&select=*"
@@ -156,7 +158,7 @@ object SupabaseClient {
                     val id = obj.optString("id", "drv_${mobileNumber.takeLast(4)}")
                     val license = obj.optString("license_number", "").takeIf { it.isNotBlank() }
                     val plate = obj.optString("vehicle_plate", obj.optString("vehicle_number", "")).takeIf { it.isNotBlank() }
-                    return@withContext DriverProfile(
+                    val profile = DriverProfile(
                         id = id,
                         fullName = name,
                         mobileNumber = mobileNumber,
@@ -165,13 +167,42 @@ object SupabaseClient {
                         vehiclePlate = plate,
                         status = DriverStatus.DEMO_ACTIVE
                     )
+
+                    val vehicleTypeStr = obj.optString("vehicle_type", "")
+                    val vehicleModel = obj.optString("vehicle_model", obj.optString("vehicle_name", ""))
+                    val totalCap = obj.optInt("total_capacity", obj.optInt("total_seats", 4))
+                    val availSeats = obj.optInt("available_seats", totalCap)
+                    val category = try {
+                        if (vehicleTypeStr.isNotBlank()) VehicleCategory.valueOf(vehicleTypeStr) else VehicleCategory.CAR
+                    } catch (e: Exception) {
+                        VehicleCategory.CAR
+                    }
+
+                    val vehicle = Vehicle(
+                        id = "veh_$id",
+                        displayName = vehicleModel.ifBlank { name },
+                        category = category,
+                        registrationNumberDisplay = plate ?: "CG 08 0000",
+                        totalCapacity = if (totalCap > 0) totalCap else category.defaultCapacity,
+                        occupiedSeats = 0,
+                        availableSeats = if (availSeats > 0) availSeats else (if (totalCap > 0) totalCap else category.defaultCapacity)
+                    )
+
+                    return@withContext Pair(profile, vehicle)
                 }
             }
             null
         } catch (e: Exception) {
-            Log.w(TAG, "getDriverByMobile failed: ${e.message}")
+            Log.w(TAG, "getDriverWithVehicleByMobile failed: ${e.message}")
             null
         }
+    }
+
+    /**
+     * Look up existing driver by mobile number for account recovery ("I already have an account").
+     */
+    suspend fun getDriverByMobile(mobileNumber: String): DriverProfile? {
+        return getDriverWithVehicleByMobile(mobileNumber)?.first
     }
 
     /**

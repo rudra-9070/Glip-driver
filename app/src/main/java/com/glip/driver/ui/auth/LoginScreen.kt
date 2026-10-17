@@ -19,6 +19,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -28,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,12 +43,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.glip.driver.R
+import com.glip.driver.data.remote.SupabaseClient
 import com.glip.driver.domain.repository.DriverRepository
 import com.glip.driver.domain.usecase.InputValidationUtil
 import com.glip.driver.ui.components.GlipPrimaryButton
 import com.glip.driver.ui.theme.GlipAccentTeal
 import com.glip.driver.ui.theme.GlipErrorRed
 import com.glip.driver.ui.theme.GlipNavyPrimary
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 @Composable
@@ -54,8 +60,11 @@ fun LoginScreen(
     onNavigateToRegister: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val coroutineScope = rememberCoroutineScope()
     var mobileNumber by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isCheckingAccount by remember { mutableStateOf(false) }
+    var accountNotFound by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
 
@@ -157,36 +166,110 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 Surface(
                     color = Color(0xFFFEE2E2),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = errorMessage!!,
-                        color = GlipErrorRed,
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                        modifier = Modifier.padding(10.dp)
-                    )
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = errorMessage!!,
+                            color = GlipErrorRed,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight = 18.sp
+                            )
+                        )
+                        if (accountNotFound) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = onNavigateToRegister,
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = GlipNavyPrimary),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp)
+                            ) {
+                                Text(
+                                    text = "👉 Click Here to Register First",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Continue Button - Opens Next Page (OTP Verification)
-            GlipPrimaryButton(
-                text = "Continue / Get OTP",
+            // Continue Button - Verifies Supabase account existence first!
+            Button(
                 onClick = {
+                    if (isCheckingAccount) return@Button
                     val mobileValidation = InputValidationUtil.validateMobileNumber(mobileNumber)
                     if (!mobileValidation.isValid) {
                         errorMessage = mobileValidation.errorMessage
-                        return@GlipPrimaryButton
+                        accountNotFound = false
+                        return@Button
                     }
 
-                    // Generate safe random 6-digit OTP
-                    val randomOtp = (Random.nextInt(900000) + 100000).toString()
+                    isCheckingAccount = true
                     errorMessage = null
-                    onNavigateToOtp(true, mobileNumber.trim(), "", randomOtp)
+                    accountNotFound = false
+
+                    coroutineScope.launch {
+                        try {
+                            val existingDriver = SupabaseClient.getDriverByMobile(mobileNumber.trim())
+                            if (existingDriver == null) {
+                                isCheckingAccount = false
+                                accountNotFound = true
+                                errorMessage = "Aapka account (+91 ${mobileNumber.trim()}) Supabase database me nahi mila!\n\nNew driver ko pehle 'Driver Registration' karna zaroori hai. Kripya niche diye gaye button se pehle registration karein."
+                                return@launch
+                            }
+
+                            // Account exists! Generate safe random 6-digit OTP
+                            val randomOtp = (Random.nextInt(900000) + 100000).toString()
+                            isCheckingAccount = false
+                            onNavigateToOtp(true, mobileNumber.trim(), existingDriver.fullName, randomOtp)
+                        } catch (e: Exception) {
+                            isCheckingAccount = false
+                            errorMessage = "Database check failed: ${e.message}. Kripya internet check karein."
+                        }
+                    }
+                },
+                enabled = !isCheckingAccount,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = GlipNavyPrimary,
+                    disabledContainerColor = Color(0xFF94A3B8)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                if (isCheckingAccount) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Checking Account...",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 14.sp
+                    )
+                } else {
+                    Text(
+                        text = "Continue / Get OTP",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 15.sp
+                    )
                 }
-            )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 

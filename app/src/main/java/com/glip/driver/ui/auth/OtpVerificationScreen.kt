@@ -432,17 +432,24 @@ fun OtpVerificationScreen(
                 if (enteredCode == currentOtpTarget) {
                     coroutineScope.launch {
                         if (isLogin) {
-                            // Check Supabase for existing driver profile first
-                            val remoteProfile = SupabaseClient.getDriverByMobile(mobileNumber)
-                            val restored = remoteProfile ?: repository.getProfile() ?: DriverProfile(
-                                id = "drv_${mobileNumber.takeLast(4)}",
-                                fullName = if (fullName.isNotBlank()) fullName else "Glip Driver",
-                                mobileNumber = mobileNumber,
-                                email = null,
-                                status = DriverStatus.DEMO_ACTIVE
+                            // Check Supabase for existing driver profile and vehicle
+                            val remoteDriverData = SupabaseClient.getDriverWithVehicleByMobile(mobileNumber)
+                            if (remoteDriverData == null) {
+                                errorMessage = "Aapka account database me nahi mila! Kripya pehle Driver Registration karein."
+                                return@launch
+                            }
+                            val restoredProfile = remoteDriverData.first
+                            val restoredVehicle = remoteDriverData.second
+                            repository.saveProfile(restoredProfile)
+                            if (restoredVehicle != null) {
+                                repository.updateVehicle(restoredVehicle)
+                            }
+                            repository.setAvailable(true)
+                            SupabaseClient.updateOnlineStatus(
+                                mobileNumber = restoredProfile.mobileNumber,
+                                driverId = restoredProfile.id,
+                                isOnline = true
                             )
-                            repository.saveProfile(restored)
-                            SupabaseClient.upsertDriverProfile(restored, isOnline = true)
                             onVerificationSuccess(false)
                         } else {
                             // New Registration flow
