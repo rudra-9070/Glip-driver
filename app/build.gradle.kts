@@ -5,14 +5,19 @@ plugins {
 
 android {
     namespace = "com.glip.driver"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.glip.driver"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 31
         versionName = "1.2.9"
+        multiDexEnabled = true
+
+        ndk {
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -29,6 +34,7 @@ android {
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
+            enableV4Signing = true
         }
     }
 
@@ -50,6 +56,7 @@ android {
         }
     }
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -75,6 +82,9 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation("androidx.multidex:multidex:2.0.1")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

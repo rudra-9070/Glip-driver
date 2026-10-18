@@ -218,12 +218,14 @@ fun HomeScreen(
                         showGpsTurnOnDialog = true
                     }
                 } else {
-                    permissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        )
-                    )
+                    val perms = buildList {
+                        add(Manifest.permission.ACCESS_FINE_LOCATION)
+                        add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            add(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }.toTypedArray()
+                    permissionLauncher.launch(perms)
                 }
             } else if (event == Lifecycle.Event.ON_PAUSE) {
                 locationManager.stopTracking()
@@ -626,12 +628,14 @@ fun HomeScreen(
                 Surface(
                     onClick = {
                         if (!hasPermission) {
-                            permissionLauncher.launch(
-                                arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
-                                )
-                            )
+                            val perms = buildList {
+                                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    add(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            }.toTypedArray()
+                            permissionLauncher.launch(perms)
                         } else {
                             DriverLocationManager.openLocationSettings(context)
                         }

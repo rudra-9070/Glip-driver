@@ -2,15 +2,26 @@ package com.glip.driver
 
 import android.app.Application
 import android.content.Context
+import androidx.multidex.MultiDex
 import com.glip.driver.util.CrashManager
 import org.osmdroid.config.Configuration
 import java.io.File
 
 class GlipDriverApplication : Application() {
+
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+        try {
+            MultiDex.install(this)
+        } catch (_: Exception) {}
+    }
+
     override fun onCreate() {
         super.onCreate()
         // Register global uncaught crash handler to trap all app crashes and present in-app error view
-        CrashManager.install(this)
+        try {
+            CrashManager.install(this)
+        } catch (_: Exception) {}
 
         // Initialize osmdroid configuration early with safe app cache dirs
         try {
