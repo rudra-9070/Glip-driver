@@ -129,6 +129,33 @@ class DemoDriverRepositoryImpl(
         // Real-time sync to Supabase backend so Passenger App knows driver accepted!
         com.glip.driver.data.remote.SupabaseClient.acceptRideRequest(requestId, driverId)
 
+        // Check if vehicle already has active trip (Shared Pooling Conversion!)
+        val existingActiveTrips = _tripsFlow.value.filter { it.status == DemoTripStatus.ACCEPTED }
+        val isPooledRide = existingActiveTrips.isNotEmpty()
+
+        // Calculate dynamic pooling discount if 2+ passengers are now sharing the vehicle
+        val finalFare = if (isPooledRide) {
+            (req.illustrativeFare * 0.75).toInt().coerceAtLeast(16)
+        } else {
+            req.illustrativeFare
+        }
+
+        // If newly converted to pooling, apply discount to existing co-passengers as well
+        if (isPooledRide) {
+            _tripsFlow.value = _tripsFlow.value.map { existingTrip ->
+                if (existingTrip.status == DemoTripStatus.ACCEPTED) {
+                    val discounted = (existingTrip.illustrativeFare * 0.75).toInt().coerceAtLeast(16)
+                    val rId = existingTrip.requestId.ifBlank { existingTrip.id }
+                    if (rId.isNotBlank()) {
+                        com.glip.driver.data.remote.SupabaseClient.updateRideFare(rId, discounted.toDouble())
+                    }
+                    existingTrip.copy(illustrativeFare = discounted)
+                } else {
+                    existingTrip
+                }
+            }
+        }
+
         val currentVehicle = _vehicleFlow.value
         val newOccupied = (currentVehicle.occupiedSeats + req.requestedSeats).coerceAtMost(currentVehicle.totalCapacity)
         val newAvailable = (currentVehicle.totalCapacity - newOccupied).coerceAtLeast(0)
@@ -138,6 +165,16 @@ class DemoDriverRepositoryImpl(
         )
         updateVehicle(updatedVehicle)
         com.glip.driver.data.remote.SupabaseClient.updateDriverSeats(driverId, newAvailable)
+
+        // Sync driver route destination to passenger's drop location so corridor stays active
+        com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
+            driverIdentifier = driverId,
+            mobileNumber = prof?.mobileNumber,
+            destinationName = req.dropoffName,
+            destLat = req.dropoffLat,
+            destLng = req.dropoffLng,
+            isActive = true
+        )
 
         val newTrip = DemoTrip(
             id = "trip_${System.currentTimeMillis()}",
@@ -152,7 +189,7 @@ class DemoDriverRepositoryImpl(
             passengerMobile = req.passengerMobile,
             requestedSeats = req.requestedSeats,
             scheduledTimeDisplay = req.approximateTime,
-            illustrativeFare = req.illustrativeFare,
+            illustrativeFare = finalFare,
             status = DemoTripStatus.ACCEPTED,
             otp = req.otp,
             isPickedUp = false
@@ -227,13 +264,18 @@ class DemoDriverRepositoryImpl(
 
     override suspend fun markPassengerPickedUp(tripId: String): Boolean {
         var found = false
+        var targetReqId = ""
         _tripsFlow.value = _tripsFlow.value.map { trip ->
             if (trip.id == tripId) {
                 found = true
+                targetReqId = if (trip.requestId.isNotBlank()) trip.requestId else tripId
                 trip.copy(isPickedUp = true)
             } else {
                 trip
             }
+        }
+        if (targetReqId.isNotBlank()) {
+            com.glip.driver.data.remote.SupabaseClient.startRideRequest(targetReqId)
         }
         return found
     }
@@ -245,6 +287,8 @@ class DemoDriverRepositoryImpl(
         // If OTP is matched or if no OTP was specified, allow boarding
         if (cleanTarget.isBlank() || cleanTarget == cleanEntered || cleanEntered == "1234") {
             markPassengerPickedUp(tripId)
+            val reqId = if (target.requestId.isNotBlank()) target.requestId else tripId
+            com.glip.driver.data.remote.SupabaseClient.startRideRequest(reqId)
             return true
         }
         return false

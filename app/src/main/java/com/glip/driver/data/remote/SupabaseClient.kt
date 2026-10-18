@@ -617,6 +617,54 @@ object SupabaseClient {
     }
 
     /**
+     * Mark a ride request as IN_PROGRESS (OTP verified, passenger picked up) in Supabase.
+     */
+    suspend fun startRideRequest(requestId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val endpoint = "/ride_requests?id=eq.$requestId"
+            val conn = openConnection(endpoint, "PATCH")
+            conn.doOutput = true
+
+            val json = JSONObject().apply {
+                put("status", "IN_PROGRESS")
+            }
+
+            OutputStreamWriter(conn.outputStream).use { writer ->
+                writer.write(json.toString())
+                writer.flush()
+            }
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            Log.w(TAG, "startRideRequest error: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Update fare_amount in Supabase when a personal ride is converted to pooling.
+     */
+    suspend fun updateRideFare(requestId: String, newFare: Double): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val endpoint = "/ride_requests?id=eq.$requestId"
+            val conn = openConnection(endpoint, "PATCH")
+            conn.doOutput = true
+
+            val json = JSONObject().apply {
+                put("fare_amount", newFare)
+            }
+
+            OutputStreamWriter(conn.outputStream).use { writer ->
+                writer.write(json.toString())
+                writer.flush()
+            }
+            conn.responseCode in 200..299
+        } catch (e: Exception) {
+            Log.w(TAG, "updateRideFare error: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * Mark a ride request as DECLINED by driver.
      * Open pooling/corridor requests are marked locally so this driver doesn't see them again,
      * but the request stays available in Supabase for the next nearest driver!
