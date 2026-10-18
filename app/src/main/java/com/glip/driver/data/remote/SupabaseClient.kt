@@ -572,5 +572,27 @@ object SupabaseClient {
             false
         }
     }
+
+    /**
+     * Checks if any active accepted ride request has been CANCELLED by the passenger.
+     */
+    suspend fun checkCancelledRequests(requestIds: List<String>): Set<String> = withContext(Dispatchers.IO) {
+        if (requestIds.isEmpty()) return@withContext emptySet()
+        val cancelled = mutableSetOf<String>()
+        try {
+            val inFilter = requestIds.joinToString(",")
+            val endpoint = "/ride_requests?id=in.($inFilter)&status=eq.CANCELLED&select=id"
+            val conn = openConnection(endpoint, "GET")
+            if (conn.responseCode in 200..299) {
+                val resp = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                val arr = JSONArray(resp)
+                for (i in 0 until arr.length()) {
+                    val id = arr.getJSONObject(i).optString("id", "")
+                    if (id.isNotBlank()) cancelled.add(id)
+                }
+            }
+        } catch (_: Exception) {}
+        cancelled
+    }
 }
 

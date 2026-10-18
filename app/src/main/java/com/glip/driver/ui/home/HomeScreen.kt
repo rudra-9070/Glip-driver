@@ -322,6 +322,26 @@ fun HomeScreen(
         }
     }
 
+    // Real-time listener: If passenger cancels active trip from Consumer App, auto-cancel on driver phone
+    LaunchedEffect(activeTrips) {
+        val reqIds = activeTrips.map { it.requestId }.filter { it.isNotBlank() }
+        if (reqIds.isEmpty()) return@LaunchedEffect
+        while (true) {
+            kotlinx.coroutines.delay(2500L)
+            try {
+                val cancelledIds = com.glip.driver.data.remote.SupabaseClient.checkCancelledRequests(reqIds)
+                if (cancelledIds.isNotEmpty()) {
+                    cancelledIds.forEach { cId ->
+                        val tripToCancel = activeTrips.find { it.requestId == cId }
+                        if (tripToCancel != null) {
+                            repository.updateTripStatus(tripToCancel.id, com.glip.driver.domain.model.DemoTripStatus.CANCELLED)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         gesturesEnabled = false,
