@@ -252,7 +252,8 @@ object SupabaseClient {
         lat: Double,
         lng: Double,
         bearing: Float,
-        isOnline: Boolean
+        isOnline: Boolean,
+        vehicleCategory: VehicleCategory? = null
     ): Boolean = withContext(Dispatchers.IO) {
         if ((mobileNumber.isBlank() && driverId.isNullOrBlank()) || lat == 0.0 || lng == 0.0) return@withContext false
         try {
@@ -270,6 +271,9 @@ object SupabaseClient {
                 put("current_lng", lng)
                 put("bearing", bearing)
                 put("is_online", isOnline)
+                if (vehicleCategory != null) {
+                    put("vehicle_type", vehicleCategory.name)
+                }
                 put("last_updated_at", getIsoTimestamp())
             }
 
@@ -348,11 +352,13 @@ object SupabaseClient {
 
     /**
      * Fetch real-time pending ride requests submitted by passengers.
-     * Matches if assigned to driver's UUID, driver's mobile, or open corridor request.
+     * Matches if assigned to driver's UUID/mobile, OR if open corridor request strictly matching driver's vehicle type.
      */
     suspend fun fetchPendingRideRequests(
         driverUuid: String?,
-        driverMobile: String? = null
+        driverMobile: String? = null,
+        driverVehicleCategory: VehicleCategory? = null,
+        driverCapacity: Int? = null
     ): List<PassengerRequest> = withContext(Dispatchers.IO) {
         val list = mutableListOf<PassengerRequest>()
         try {
@@ -372,17 +378,33 @@ object SupabaseClient {
                     }
                     val assignedDriver = obj.optString("driver_id", "").trim()
                     
-                    // Match logic:
-                    // 1. If assignedDriver is empty -> open request for any driver on route!
-                    // 2. If assignedDriver matches driverUuid -> direct match!
-                    // 3. If assignedDriver matches driverMobile -> direct match!
-                    val isMatch = assignedDriver.isBlank() ||
-                            (!driverUuid.isNullOrBlank() && assignedDriver.equals(driverUuid, ignoreCase = true)) ||
+                    val isDirectMatch = (!driverUuid.isNullOrBlank() && assignedDriver.equals(driverUuid, ignoreCase = true)) ||
                             (!driverMobile.isNullOrBlank() && assignedDriver.equals(driverMobile, ignoreCase = true))
-                    
-                    if (!isMatch) {
+
+                    // If assigned to another specific driver, skip!
+                    if (!assignedDriver.isBlank() && !isDirectMatch) {
                         continue
                     }
+
+                    val seats = obj.optInt("requested_seats", 1)
+
+                    // Vehicle Category Filter:
+                    // Strict separation: Bike gets Bike, Auto gets Auto, E-Rickshaw gets E-Rickshaw, Cab gets Cab
+                    if (driverVehicleCategory != null) {
+                        val isCategoryMatch = when (driverVehicleCategory) {
+                            VehicleCategory.BIKE -> seats == 1
+                            VehicleCategory.E_RICKSHAW -> seats == 5 || (isDirectMatch && seats <= 5)
+                            VehicleCategory.AUTO_RICKSHAW -> seats == 7 || (isDirectMatch && seats <= 7)
+                            VehicleCategory.CAR -> seats == 4 || (isDirectMatch && seats <= 4)
+                            VehicleCategory.VAN -> seats in 4..7
+                            VehicleCategory.MINI_BUS -> seats > 7
+                            else -> true
+                        }
+                        if (!isCategoryMatch) {
+                            continue
+                        }
+                    }
+
                     val id = obj.optString("id")
                     val rawName = obj.optString("passenger_name", "Passenger")
                     val passName = rawName.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Passenger" }
@@ -393,7 +415,6 @@ object SupabaseClient {
                     val pLng = obj.optDouble("pickup_lng", 0.0)
                     val dLat = obj.optDouble("drop_lat", 0.0)
                     val dLng = obj.optDouble("drop_lng", 0.0)
-                    val seats = obj.optInt("requested_seats", 1)
                     val fare = obj.optDouble("fare_amount", 0.0).toInt().coerceAtLeast(16)
                     val otp = obj.optString("otp", "")
 

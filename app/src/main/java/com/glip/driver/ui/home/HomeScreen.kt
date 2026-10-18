@@ -252,10 +252,11 @@ fun HomeScreen(
     val origin = driverRoute?.originName ?: "Current Location"
     val destination = driverRoute?.destinationName ?: ""
 
-    // Sync live driver GPS location and bearing to Supabase in real-time
-    LaunchedEffect(liveLocation, isAvailable) {
+    // Sync live driver GPS location, bearing, and vehicle type to Supabase in real-time
+    LaunchedEffect(liveLocation, isAvailable, vehicle) {
         val loc = liveLocation
         val prof = profile
+        val veh = vehicle
         if (loc != null && loc.latitude != 0.0 && prof != null && (prof.mobileNumber.isNotBlank() || prof.id.isNotBlank())) {
             com.glip.driver.data.remote.SupabaseClient.updateLiveLocation(
                 mobileNumber = prof.mobileNumber,
@@ -263,7 +264,8 @@ fun HomeScreen(
                 lat = loc.latitude,
                 lng = loc.longitude,
                 bearing = loc.bearing,
-                isOnline = isAvailable
+                isOnline = isAvailable,
+                vehicleCategory = veh?.category
             )
         }
     }
@@ -285,7 +287,8 @@ fun HomeScreen(
     var isSyncingOnline by remember { mutableStateOf(false) }
 
     // Real-time polling for incoming passenger ride requests whenever driver is ONLINE
-    LaunchedEffect(isAvailable, profile) {
+    // Strictly filtered to match this driver's registered vehicle category (Auto, Bike, E-Rickshaw, Cab)
+    LaunchedEffect(isAvailable, profile, vehicle) {
         if (!isAvailable) {
             repository.setIncomingRequests(emptyList())
             return@LaunchedEffect
@@ -293,11 +296,15 @@ fun HomeScreen(
         val prof = profile
         val driverUuid = prof?.id
         val driverMobile = prof?.mobileNumber
+        val cat = vehicle?.category
+        val cap = vehicle?.totalCapacity
         while (true) {
             try {
                 val realRequests = com.glip.driver.data.remote.SupabaseClient.fetchPendingRideRequests(
                     driverUuid = driverUuid,
-                    driverMobile = driverMobile
+                    driverMobile = driverMobile,
+                    driverVehicleCategory = cat,
+                    driverCapacity = cap
                 )
                 repository.setIncomingRequests(realRequests)
                 val topReq = realRequests.firstOrNull()
