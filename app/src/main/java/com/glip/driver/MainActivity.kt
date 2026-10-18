@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
         val repository = GlipDriverApplication.repository
         val sessionManager = LocalDemoSessionManager(applicationContext)
 
-        if (sessionManager.isDriverAvailable()) {
+        if (sessionManager.isDriverAvailable() && com.glip.driver.location.DriverLocationManager.hasLocationPermission(this)) {
             com.glip.driver.service.GlipDriverDispatchService.start(this)
         }
 

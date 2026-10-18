@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -478,7 +479,121 @@ fun RouteSetupScreen(
             }
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // Independent Ride Option (Rapido / Uber open dispatch style)
+        val isAnyDestinationActive = currentRoute != null &&
+                currentRoute?.isActive == true &&
+                !currentRoute?.destinationName.isNullOrBlank() &&
+                currentRoute?.destinationName != "Independent Ride"
+
+        val isIndependentRideActive = !isAnyDestinationActive
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isIndependentRideActive) Color(0xFFF0FDF4) else Color(0xFFF8FAFC)
+            ),
+            border = BorderStroke(
+                1.5.dp,
+                if (isIndependentRideActive) Color(0xFF10B981) else Color(0xFFE2E8F0)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Independent Ride",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = if (isIndependentRideActive) Color(0xFF15803D) else GlipNavyPrimary
+                        )
+                        if (isIndependentRideActive) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                color = Color(0xFF16A34A),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "ACTIVE",
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Bina destination set kiye chalaayein — paas ki sabhi rides milengi (Rapido / Uber style)",
+                        fontSize = 11.sp,
+                        color = Color(0xFF64748B),
+                        lineHeight = 14.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Switch(
+                    checked = isIndependentRideActive,
+                    onCheckedChange = { enable ->
+                        if (enable) {
+                            // Turn ON Independent Ride mode: clear active destination route
+                            destination = ""
+                            destLat = 0.0
+                            destLng = 0.0
+                            coroutineScope.launch {
+                                val cleared = DriverRoute(
+                                    originName = "Current Location",
+                                    destinationName = "",
+                                    isActive = false
+                                )
+                                repository.updateRoute(cleared)
+                                val prof = repository.getProfile()
+                                if (prof != null) {
+                                    com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
+                                        driverIdentifier = prof.id,
+                                        mobileNumber = prof.mobileNumber,
+                                        destinationName = "",
+                                        destLat = 0.0,
+                                        destLng = 0.0,
+                                        isActive = false
+                                    )
+                                }
+                                Toast.makeText(
+                                    context,
+                                    "Independent Ride mode active! Paas ki sabhi rides ab aapko milengi.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                onSavedOrSkipped()
+                            }
+                        }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = Color(0xFF10B981),
+                        uncheckedThumbColor = Color(0xFFCBD5E1),
+                        uncheckedTrackColor = Color(0xFFF1F5F9)
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Saved Destinations with On/Off Toggle
         Text(
@@ -518,86 +633,39 @@ fun RouteSetupScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 5.dp),
+                    .padding(vertical = 4.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isActive) Color(0xFFF0FDF4) else Color(0xFFF8FAFC)
+                    containerColor = if (isActive) Color(0xFFF0FDF4) else Color.White
                 ),
                 border = BorderStroke(
-                    1.5.dp,
+                    1.dp,
                     if (isActive) Color(0xFF10B981) else Color(0xFFE2E8F0)
                 )
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
+                    // Line 1: Destination Address (single line with ellipsis) + On/Off Switch
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Category Icon
-                        Box(
+                        Text(
+                            text = item.title.ifBlank { item.address },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = if (isActive) Color(0xFF15803D) else Color(0xFF334155),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(if (isActive) Color(0xFFDCFCE7) else Color(0xFFE2E8F0)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = when (item.iconCategory) {
-                                    "HOME" -> Icons.Default.Home
-                                    "BUS" -> Icons.Default.DirectionsBus
-                                    else -> Icons.Default.DirectionsCar
-                                },
-                                contentDescription = null,
-                                tint = if (isActive) Color(0xFF16A34A) else Color(0xFF475569),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                                .weight(1f)
+                                .padding(end = 8.dp)
+                        )
 
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = item.title,
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isActive) Color(0xFF15803D) else GlipNavyPrimary
-                                    )
-                                )
-                                if (isActive) {
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Surface(
-                                        color = Color(0xFF16A34A),
-                                        shape = RoundedCornerShape(4.dp)
-                                    ) {
-                                        Text(
-                                            text = "ACTIVE",
-                                            color = Color.White,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                            }
-                            Text(
-                                text = item.address,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF64748B),
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
-                    }
-
-                    // ON / OFF Toggle Switch
-                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(
                             checked = isActive,
                             onCheckedChange = { enable ->
@@ -644,26 +712,26 @@ fun RouteSetupScreen(
                                         onSavedOrSkipped()
                                     }
                                 } else {
-                                    // Deactivate route
+                                    // Turning OFF route switches back to Independent Ride mode!
                                     coroutineScope.launch {
-                                        val updated = currentRoute?.copy(isActive = false) ?: DriverRoute(
+                                        val cleared = DriverRoute(
                                             originName = "Current Location",
-                                            destinationName = item.address,
+                                            destinationName = "",
                                             isActive = false
                                         )
-                                        repository.updateRoute(updated)
+                                        repository.updateRoute(cleared)
                                         val prof = repository.getProfile()
                                         if (prof != null) {
                                             com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
                                                 driverIdentifier = prof.id,
                                                 mobileNumber = prof.mobileNumber,
-                                                destinationName = item.address,
+                                                destinationName = "",
                                                 destLat = 0.0,
                                                 destLng = 0.0,
                                                 isActive = false
                                             )
                                         }
-                                        Toast.makeText(context, "${item.title} deactivated.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "${item.title} turned off. Independent Ride active.", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -674,19 +742,56 @@ fun RouteSetupScreen(
                                 uncheckedTrackColor = Color(0xFFF1F5F9)
                             )
                         )
+                    }
 
-                        if (item.isDeletable) {
-                            IconButton(onClick = {
-                                savedDestinations.remove(item)
-                                persistSavedDestinations(prefs, savedDestinations)
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete Route",
-                                    tint = Color(0xFF94A3B8),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Line 2: Delete Button (Trash icon + "Delete" text exactly as in screenshot 1)
+                    if (item.isDeletable) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable {
+                                    savedDestinations.remove(item)
+                                    persistSavedDestinations(prefs, savedDestinations)
+                                    if (isActive) {
+                                        coroutineScope.launch {
+                                            val cleared = DriverRoute(
+                                                originName = "Current Location",
+                                                destinationName = "",
+                                                isActive = false
+                                            )
+                                            repository.updateRoute(cleared)
+                                            val prof = repository.getProfile()
+                                            if (prof != null) {
+                                                com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
+                                                    driverIdentifier = prof.id,
+                                                    mobileNumber = prof.mobileNumber,
+                                                    destinationName = "",
+                                                    destLat = 0.0,
+                                                    destLng = 0.0,
+                                                    isActive = false
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = Color(0xFF64748B),
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Delete",
+                                fontSize = 12.sp,
+                                color = Color(0xFF64748B),
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }

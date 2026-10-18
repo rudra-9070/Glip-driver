@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.Ringtone
 import android.media.RingtoneManager
@@ -57,21 +58,30 @@ class GlipDriverDispatchService : Service() {
             private set
 
         fun start(context: Context) {
-            val intent = Intent(context, GlipDriverDispatchService::class.java).apply {
-                action = ACTION_START
+            if (!DriverLocationManager.hasLocationPermission(context)) {
+                return
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                val intent = Intent(context, GlipDriverDispatchService::class.java).apply {
+                    action = ACTION_START
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("GlipDispatch", "Failed to start service: ${e.message}")
             }
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, GlipDriverDispatchService::class.java).apply {
-                action = ACTION_STOP
-            }
-            context.startService(intent)
+            try {
+                val intent = Intent(context, GlipDriverDispatchService::class.java).apply {
+                    action = ACTION_STOP
+                }
+                context.startService(intent)
+            } catch (_: Exception) {}
         }
     }
 
@@ -96,9 +106,27 @@ class GlipDriverDispatchService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                isRunning = true
-                startForeground(STATUS_NOTIFICATION_ID, buildStatusNotification())
-                startDispatchLoop()
+                if (!DriverLocationManager.hasLocationPermission(this)) {
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+                try {
+                    isRunning = true
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(
+                            STATUS_NOTIFICATION_ID,
+                            buildStatusNotification(),
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                        )
+                    } else {
+                        startForeground(STATUS_NOTIFICATION_ID, buildStatusNotification())
+                    }
+                    startDispatchLoop()
+                } catch (e: Exception) {
+                    android.util.Log.e("GlipDispatch", "startForeground failed: ${e.message}")
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
             }
             ACTION_STOP -> {
                 isRunning = false

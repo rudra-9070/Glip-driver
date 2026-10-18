@@ -267,13 +267,13 @@ fun HomeScreen(
     val destination = driverRoute?.destinationName ?: ""
 
     // Keep driver ONLINE in background via Foreground Service (Uber / Rapido / Ola style)
-    LaunchedEffect(isAvailable) {
-        if (isAvailable) {
+    LaunchedEffect(isAvailable, hasPermission) {
+        if (isAvailable && hasPermission) {
             com.glip.driver.service.GlipDriverDispatchService.start(context)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
                 showOverlayPermissionPrompt = true
             }
-        } else {
+        } else if (!isAvailable) {
             com.glip.driver.service.GlipDriverDispatchService.stop(context)
         }
     }
@@ -768,7 +768,7 @@ fun HomeScreen(
                         .clip(RoundedCornerShape(16.dp))
                 ) {
                     GlipOsmMapView(
-                        route = if (isAvailable) driverRoute else null,
+                        route = if (isAvailable && driverRoute?.isActive == true && !driverRoute?.destinationName.isNullOrBlank() && driverRoute?.destinationName != "Independent Ride") driverRoute else null,
                         requests = if (isAvailable && activeTrips.isEmpty()) requests else emptyList(),
                         activeTrip = activeTrip,
                         activeTrips = activeTrips,
