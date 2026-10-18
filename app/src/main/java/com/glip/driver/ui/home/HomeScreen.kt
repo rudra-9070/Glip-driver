@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.location.Location
 import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -191,6 +192,14 @@ fun HomeScreen(
         mutableStateOf(DriverLocationManager.hasLocationPermission(context))
     }
     var showGpsTurnOnDialog by remember { mutableStateOf(false) }
+    var hasOverlayPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Settings.canDrawOverlays(context)
+            } else true
+        )
+    }
+    var showOverlayPermissionPrompt by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -209,6 +218,9 @@ fun HomeScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
+                hasOverlayPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    Settings.canDrawOverlays(context)
+                } else true
                 val hasPerm = DriverLocationManager.hasLocationPermission(context)
                 hasPermission = hasPerm
                 val gpsOn = locationManager.refreshGpsStatus()
@@ -254,6 +266,18 @@ fun HomeScreen(
     val origin = driverRoute?.originName ?: "Current Location"
     val destination = driverRoute?.destinationName ?: ""
 
+    // Keep driver ONLINE in background via Foreground Service (Uber / Rapido / Ola style)
+    LaunchedEffect(isAvailable) {
+        if (isAvailable) {
+            com.glip.driver.service.GlipDriverDispatchService.start(context)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+                showOverlayPermissionPrompt = true
+            }
+        } else {
+            com.glip.driver.service.GlipDriverDispatchService.stop(context)
+        }
+    }
+
     // Sync live driver GPS location, bearing, and vehicle type to Supabase in real-time
     LaunchedEffect(liveLocation, isAvailable, vehicle) {
         val loc = liveLocation
@@ -289,8 +313,8 @@ fun HomeScreen(
     var isSyncingOnline by remember { mutableStateOf(false) }
 
     // Real-time polling for incoming passenger ride requests whenever driver is ONLINE
-    // Strictly filtered to match this driver's registered vehicle category (Auto, Bike, E-Rickshaw, Cab)
-    LaunchedEffect(isAvailable, profile, vehicle) {
+    // Strictly filtered to match this driver's registered vehicle category and nearby waterfall dispatch
+    LaunchedEffect(isAvailable, profile, vehicle, liveLocation) {
         if (!isAvailable) {
             repository.setIncomingRequests(emptyList())
             return@LaunchedEffect
@@ -302,11 +326,14 @@ fun HomeScreen(
         val cap = vehicle?.totalCapacity
         while (true) {
             try {
+                val loc = liveLocation
                 val realRequests = com.glip.driver.data.remote.SupabaseClient.fetchPendingRideRequests(
                     driverUuid = driverUuid,
                     driverMobile = driverMobile,
                     driverVehicleCategory = cat,
-                    driverCapacity = cap
+                    driverCapacity = cap,
+                    driverLat = loc?.latitude ?: 0.0,
+                    driverLng = loc?.longitude ?: 0.0
                 )
                 repository.setIncomingRequests(realRequests)
                 val topReq = realRequests.firstOrNull()
@@ -529,6 +556,58 @@ fun HomeScreen(
                                 tint = Color(0xFF0284C7),
                                 modifier = Modifier.size(18.dp)
                             )
+                        }
+                    }
+                }
+
+                // Floating Overlay Permission Banner (Uber / Rapido Style Alert)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !hasOverlayPermission) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+                        border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "🔔", fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Floating Ride Alerts",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF92400E)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Background me ride alerts pane ke liye 'Display over other apps' allow karein.",
+                                fontSize = 11.sp,
+                                color = Color(0xFF78350F),
+                                lineHeight = 15.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    try {
+                                        val intent = Intent(
+                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                            Uri.parse("package:${context.packageName}")
+                                        ).apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (_: Exception) {}
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("Allow Permission", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
                         }
                     }
                 }
@@ -1618,6 +1697,57 @@ fun HomeScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showGpsTurnOnDialog = false }) {
+                        Text("Later", color = Color(0xFF94A3B8))
+                    }
+                }
+            )
+        }
+
+        // Floating Overlay Permission Dialog - Prompts driver to allow "Display over other apps"
+        if (showOverlayPermissionPrompt && !hasOverlayPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            AlertDialog(
+                onDismissRequest = { showOverlayPermissionPrompt = false },
+                icon = {
+                    Text(text = "🔔", fontSize = 32.sp)
+                },
+                title = {
+                    Text(
+                        text = "Enable Floating Ride Alerts",
+                        fontWeight = FontWeight.Bold,
+                        color = GlipNavyPrimary
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Rapido / Uber / Ola ki tarah phone me bahar hote huye bhi ride alerts pane ke liye 'Display over other apps' allow karein.",
+                        color = Color(0xFF475569),
+                        fontSize = 14.sp
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showOverlayPermissionPrompt = false
+                            try {
+                                val intent = Intent(
+                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    Uri.parse("package:${context.packageName}")
+                                ).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) {}
+                        }
+                    ) {
+                        Text(
+                            text = "ALLOW PERMISSION",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0284C7)
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showOverlayPermissionPrompt = false }) {
                         Text("Later", color = Color(0xFF94A3B8))
                     }
                 }

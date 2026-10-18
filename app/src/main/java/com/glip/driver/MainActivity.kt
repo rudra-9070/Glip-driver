@@ -16,16 +16,32 @@ import com.glip.driver.ui.theme.GlipDriverTheme
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        var isAppInForeground: Boolean = false
+            private set
+    }
+
+    override fun onResume() {
+        super.onResume()
+        isAppInForeground = true
+        com.glip.driver.service.FloatingRideOverlayManager.dismissOverlay()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        isAppInForeground = false
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialize local demo session manager and driver repository
+        // Use shared driver repository instance across UI and Background Dispatch Service
+        val repository = GlipDriverApplication.repository
         val sessionManager = LocalDemoSessionManager(applicationContext)
-        val matchingEngine = RouteMatchingEngine()
-        val repository = DemoDriverRepositoryImpl(
-            sessionManager = sessionManager,
-            matchingEngine = matchingEngine
-        )
+
+        if (sessionManager.isDriverAvailable()) {
+            com.glip.driver.service.GlipDriverDispatchService.start(this)
+        }
 
         setContent {
             GlipDriverTheme {

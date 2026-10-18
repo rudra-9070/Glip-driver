@@ -1,5 +1,6 @@
 package com.glip.driver.data.remote
 
+import android.location.Location
 import android.util.Log
 import com.glip.driver.domain.model.DriverProfile
 import com.glip.driver.domain.model.DriverStatus
@@ -350,15 +351,94 @@ object SupabaseClient {
         }
     }
 
+    data class OnlineDriverInfo(
+        val id: String,
+        val mobileNumber: String,
+        val lat: Double,
+        val lng: Double,
+        val vehicleType: String
+    )
+
+    private var cachedOnlineDrivers: List<OnlineDriverInfo> = emptyList()
+    private var lastOnlineDriversFetchTime: Long = 0L
+    private val localDeclinedRequests = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+    fun markLocalDeclined(requestId: String) {
+        localDeclinedRequests.add(requestId)
+    }
+
+    fun isLocalDeclined(requestId: String): Boolean = localDeclinedRequests.contains(requestId)
+
+    fun getSecondsSince(isoTimestamp: String): Long {
+        return try {
+            val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+            sdf.timeZone = TimeZone.getTimeZone("UTC")
+            val cleanIso = isoTimestamp.split(".")[0].replace("Z", "")
+            val date = sdf.parse(cleanIso) ?: return 0L
+            val diffMs = System.currentTimeMillis() - date.time
+            (diffMs / 1000L).coerceAtLeast(0L)
+        } catch (_: Exception) {
+            0L
+        }
+    }
+
+    /**
+     * Fetches online drivers to calculate proximity ranks for waterfall dispatching.
+     * Cached for 6 seconds to prevent excessive network calls.
+     */
+    suspend fun getNearbyOnlineDrivers(): List<OnlineDriverInfo> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        if (now - lastOnlineDriversFetchTime < 6000L && cachedOnlineDrivers.isNotEmpty()) {
+            return@withContext cachedOnlineDrivers
+        }
+        val list = mutableListOf<OnlineDriverInfo>()
+        try {
+            val endpoint = "/drivers?is_online=eq.true&select=id,mobile_number,current_lat,current_lng,vehicle_type"
+            val conn = openConnection(endpoint, "GET")
+            if (conn.responseCode in 200..299) {
+                val resp = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                val arr = JSONArray(resp)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val lat = obj.optDouble("current_lat", 0.0)
+                    val lng = obj.optDouble("current_lng", 0.0)
+                    if (lat != 0.0 && lng != 0.0) {
+                        list.add(
+                            OnlineDriverInfo(
+                                id = obj.optString("id", ""),
+                                mobileNumber = obj.optString("mobile_number", ""),
+                                lat = lat,
+                                lng = lng,
+                                vehicleType = obj.optString("vehicle_type", "")
+                            )
+                        )
+                    }
+                }
+                cachedOnlineDrivers = list
+                lastOnlineDriversFetchTime = now
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "getNearbyOnlineDrivers error: ${e.message}")
+        }
+        list
+    }
+
     /**
      * Fetch real-time pending ride requests submitted by passengers.
      * Matches if assigned to driver's UUID/mobile, OR if open corridor request strictly matching driver's vehicle type.
+     * Enforces strict city/proximity radius (<= 15 km) and Rapido/Uber-style Waterfall Cascading Dispatch:
+     * - Nearest Driver (Rank 1): Gets request immediately (0s - 90s)
+     * - 2nd Nearest (Rank 2): Gets request after 15s if Rank 1 didn't accept
+     * - 3rd Nearest (Rank 3): Gets request after 30s
+     * - Rank 4+: Gets request after 45s
      */
     suspend fun fetchPendingRideRequests(
         driverUuid: String?,
         driverMobile: String? = null,
         driverVehicleCategory: VehicleCategory? = null,
-        driverCapacity: Int? = null
+        driverCapacity: Int? = null,
+        driverLat: Double = 0.0,
+        driverLng: Double = 0.0
     ): List<PassengerRequest> = withContext(Dispatchers.IO) {
         val list = mutableListOf<PassengerRequest>()
         try {
@@ -372,6 +452,11 @@ object SupabaseClient {
                 val arr = JSONArray(response)
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
+                    val id = obj.optString("id")
+                    if (isLocalDeclined(id)) {
+                        continue // Driver previously rejected this ride; skip!
+                    }
+
                     val createdAt = obj.optString("created_at", "")
                     if (!isTimestampFresh(createdAt, maxAgeSeconds = 90)) {
                         continue // Discard stale/expired requests from earlier
@@ -405,16 +490,72 @@ object SupabaseClient {
                         }
                     }
 
-                    val id = obj.optString("id")
+                    val pLat = obj.optDouble("pickup_lat", 0.0)
+                    val pLng = obj.optDouble("pickup_lng", 0.0)
+                    val dLat = obj.optDouble("drop_lat", 0.0)
+                    val dLng = obj.optDouble("drop_lng", 0.0)
+
+                    // Proximity & City Boundary Filter (Max 15 KM):
+                    // Prevents rides from another city or far location from reaching this driver!
+                    var myDistanceMeters = 0f
+                    if (driverLat != 0.0 && driverLng != 0.0 && pLat != 0.0 && pLng != 0.0) {
+                        val distArr = FloatArray(1)
+                        Location.distanceBetween(driverLat, driverLng, pLat, pLng, distArr)
+                        myDistanceMeters = distArr[0]
+
+                        if (myDistanceMeters > 15_000f && !isDirectMatch) {
+                            continue // In a different city or too far away! Skip.
+                        }
+                    }
+
+                    // Waterfall Cascading Dispatch:
+                    // Send to the nearest driver first. If not accepted within 15s, expand to next nearest.
+                    if (!isDirectMatch && pLat != 0.0 && pLng != 0.0) {
+                        val ageSeconds = getSecondsSince(createdAt)
+                        val allOnline = getNearbyOnlineDrivers()
+                        val matchingDrivers = allOnline.filter { drv ->
+                            if (driverVehicleCategory != null && drv.vehicleType.isNotBlank()) {
+                                drv.vehicleType.equals(driverVehicleCategory.name, ignoreCase = true)
+                            } else true
+                        }.map { drv ->
+                            val dArr = FloatArray(1)
+                            Location.distanceBetween(drv.lat, drv.lng, pLat, pLng, dArr)
+                            Pair(drv, dArr[0])
+                        }.filter { it.second <= 15_000f }
+                         .sortedBy { it.second }
+
+                        val myRank = matchingDrivers.indexOfFirst { (drv, _) ->
+                            (!driverUuid.isNullOrBlank() && drv.id.equals(driverUuid, ignoreCase = true)) ||
+                                    (!driverMobile.isNullOrBlank() && drv.mobileNumber.equals(driverMobile, ignoreCase = true))
+                        }.let { idx ->
+                            if (idx >= 0) idx + 1
+                            else {
+                                when {
+                                    myDistanceMeters <= 2_500f -> 1
+                                    myDistanceMeters <= 5_000f -> 2
+                                    myDistanceMeters <= 9_000f -> 3
+                                    else -> 4
+                                }
+                            }
+                        }
+
+                        val isEligibleNow = when (myRank) {
+                            1 -> true
+                            2 -> ageSeconds >= 15
+                            3 -> ageSeconds >= 30
+                            else -> ageSeconds >= 45
+                        }
+
+                        if (!isEligibleNow) {
+                            continue // Wait for closer driver to decide first
+                        }
+                    }
+
                     val rawName = obj.optString("passenger_name", "Passenger")
                     val passName = rawName.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Passenger" }
                     val passMobile = obj.optString("passenger_mobile", "")
                     val pickup = obj.optString("pickup_name", "")
                     val drop = obj.optString("drop_name", "")
-                    val pLat = obj.optDouble("pickup_lat", 0.0)
-                    val pLng = obj.optDouble("pickup_lng", 0.0)
-                    val dLat = obj.optDouble("drop_lat", 0.0)
-                    val dLng = obj.optDouble("drop_lng", 0.0)
                     val fare = obj.optDouble("fare_amount", 0.0).toInt().coerceAtLeast(16)
                     val otp = obj.optString("otp", "")
 
@@ -476,9 +617,16 @@ object SupabaseClient {
     }
 
     /**
-     * Mark a ride request as DECLINED by driver in Supabase.
+     * Mark a ride request as DECLINED by driver.
+     * Open pooling/corridor requests are marked locally so this driver doesn't see them again,
+     * but the request stays available in Supabase for the next nearest driver!
+     * Direct assignments are updated in Supabase.
      */
-    suspend fun declineRideRequest(requestId: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun declineRideRequest(requestId: String, isDirectAssignment: Boolean = false): Boolean = withContext(Dispatchers.IO) {
+        markLocalDeclined(requestId)
+        if (!isDirectAssignment) {
+            return@withContext true
+        }
         try {
             val endpoint = "/ride_requests?id=eq.$requestId"
             val conn = openConnection(endpoint, "PATCH")

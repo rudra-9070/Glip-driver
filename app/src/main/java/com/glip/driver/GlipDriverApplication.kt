@@ -3,11 +3,28 @@ package com.glip.driver
 import android.app.Application
 import android.content.Context
 import androidx.multidex.MultiDex
+import com.glip.driver.data.local.LocalDemoSessionManager
+import com.glip.driver.data.repository.DemoDriverRepositoryImpl
+import com.glip.driver.domain.usecase.RouteMatchingEngine
 import com.glip.driver.util.CrashManager
 import org.osmdroid.config.Configuration
 import java.io.File
 
 class GlipDriverApplication : Application() {
+
+    companion object {
+        lateinit var instance: GlipDriverApplication
+            private set
+
+        val repository: DemoDriverRepositoryImpl by lazy {
+            val sessionManager = LocalDemoSessionManager(instance.applicationContext)
+            val matchingEngine = RouteMatchingEngine()
+            DemoDriverRepositoryImpl(
+                sessionManager = sessionManager,
+                matchingEngine = matchingEngine
+            )
+        }
+    }
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(base)
@@ -18,6 +35,7 @@ class GlipDriverApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         // Register global uncaught crash handler to trap all app crashes and present in-app error view
         try {
             CrashManager.install(this)
