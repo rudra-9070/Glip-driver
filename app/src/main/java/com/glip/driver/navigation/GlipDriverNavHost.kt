@@ -21,6 +21,7 @@ import com.glip.driver.ui.profile.ProfileScreen
 import com.glip.driver.ui.requests.RequestsScreen
 import com.glip.driver.ui.services.ComingSoonScreen
 import com.glip.driver.ui.services.SchoolTransportationScreen
+import com.glip.driver.ui.wallet.WalletScreen
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -169,12 +170,18 @@ fun GlipDriverNavHost(
             HomeScreen(
                 repository = repository,
                 onNavigateToProfile = { navController.navigate(Screen.Profile.route) },
+                onNavigateToWallet = { navController.navigate(Screen.Wallet.route) },
                 onNavigateToActivity = { navController.navigate(Screen.Activity.route) },
                 onNavigateToRequests = { navController.navigate(Screen.Requests.route) },
                 onEditVehicle = { navController.navigate(Screen.VehicleSetup.route) },
                 onEditRoute = { navController.navigate(Screen.RouteSetup.route) },
                 onViewAllRequests = { navController.navigate(Screen.Requests.route) },
                 onNavigateToDiagnostics = { navController.navigate(Screen.Diagnostics.route) }
+            )
+        }
+        composable(Screen.Wallet.route) {
+            WalletScreen(
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.Requests.route) {

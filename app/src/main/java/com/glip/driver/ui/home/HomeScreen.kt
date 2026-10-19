@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.BugReport
@@ -167,6 +168,7 @@ fun playRideRequestAlert(context: android.content.Context, passengerName: String
 fun HomeScreen(
     repository: DemoDriverRepositoryImpl,
     onNavigateToProfile: () -> Unit = {},
+    onNavigateToWallet: () -> Unit = {},
     onNavigateToActivity: () -> Unit = {},
     onNavigateToRequests: () -> Unit = {},
     onEditVehicle: () -> Unit = {},
@@ -472,7 +474,48 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
 
-                // 2. Activity Tab
+                // 2. Wallet Tab (between Profile and Activity)
+                NavigationDrawerItem(
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.AccountBalanceWallet,
+                            contentDescription = "Wallet",
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    },
+                    label = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Wallet",
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF0F172A),
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                text = "₹120.00",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF16A34A),
+                                fontSize = 13.sp
+                            )
+                        }
+                    },
+                    selected = false,
+                    onClick = {
+                        coroutineScope.launch { drawerState.close() }
+                        onNavigateToWallet()
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                        unselectedContainerColor = Color.Transparent
+                    ),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+
+                // 3. Activity Tab
                 NavigationDrawerItem(
                     icon = {
                         Icon(
