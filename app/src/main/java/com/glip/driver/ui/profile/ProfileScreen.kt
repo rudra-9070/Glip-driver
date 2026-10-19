@@ -118,11 +118,13 @@ fun ProfileScreen(
             )
         }
 
-        // Driver Identity Header Card (Compact Box)
+        // Driver Identity Header Card (Normal Box)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = GlipNavyPrimary)
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -134,13 +136,13 @@ fun ProfileScreen(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF1E293B)),
+                        .background(Color(0xFFEFF6FF)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = "Driver Avatar",
-                        tint = GlipAccentTeal,
+                        tint = Color(0xFF0284C7),
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -150,22 +152,28 @@ fun ProfileScreen(
                         text = profile?.fullName ?: "Driver",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = GlipNavyPrimary
                         )
                     )
+                    val rawMobile = profile?.mobileNumber?.trim() ?: ""
+                    val cleanMobile = rawMobile.replace(Regex("[^0-9]"), "").takeLast(10)
+                    val fullMobileDisplay = if (cleanMobile.length == 10) "+91 $cleanMobile" else if (rawMobile.isNotBlank()) rawMobile else "+91 9876543210"
                     Text(
-                        text = profile?.maskedMobile ?: "+91 98******10",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF94A3B8))
+                        text = fullMobileDisplay,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF64748B),
+                            fontWeight = FontWeight.Medium
+                        )
                     )
                 }
                 Surface(
-                    color = Color(0xFF16A34A).copy(alpha = 0.2f),
-                    border = BorderStroke(1.dp, Color(0xFF16A34A)),
+                    color = Color(0xFFDCFCE7),
+                    border = BorderStroke(1.dp, Color(0xFF86EFAC)),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Text(
                         text = profile?.status?.label ?: "Active",
-                        color = Color(0xFF4ADE80),
+                        color = Color(0xFF15803D),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)

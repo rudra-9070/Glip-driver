@@ -488,23 +488,12 @@ fun OtpVerificationScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Resend OTP / Manual Demo Pop-up Trigger
+        // Resend OTP Row
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(
-                onClick = { showOtpPopup = true }
-            ) {
-                Text(
-                    text = "Show Demo OTP",
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0284C7),
-                    fontSize = 13.sp
-                )
-            }
-
             if (resendCountdown > 0) {
                 Text(
                     text = "Resend OTP in ${resendCountdown}s",

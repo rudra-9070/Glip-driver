@@ -537,15 +537,6 @@ fun RouteSetupScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Bina destination set kiye chalaayein — paas ki sabhi rides milengi (Rapido / Uber style)",
-                        fontSize = 11.sp,
-                        color = Color(0xFF64748B),
-                        lineHeight = 14.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
 
                 Switch(

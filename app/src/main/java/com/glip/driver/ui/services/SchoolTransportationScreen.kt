@@ -72,9 +72,12 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.glip.driver.data.remote.SchoolApplicationData
 import com.glip.driver.data.remote.SchoolSupabaseClient
 import com.glip.driver.domain.repository.DriverRepository
 import com.glip.driver.location.DriverLocationManager
@@ -119,15 +122,55 @@ fun SchoolTransportationScreen(
     var homeLat by remember { mutableDoubleStateOf(0.0) }
     var homeLng by remember { mutableDoubleStateOf(0.0) }
 
+    val prefs = remember {
+        context.getSharedPreferences("glip_driver_demo_prefs", Context.MODE_PRIVATE)
+    }
+
+    val cleanMobile = remember(profile?.mobileNumber, driverMobile) {
+        val raw = if (driverMobile.isNotBlank()) driverMobile else (profile?.mobileNumber ?: "")
+        raw.replace(Regex("[^0-9]"), "").takeLast(10)
+    }
+
+    var applicationData by remember { mutableStateOf<SchoolApplicationData?>(null) }
     var isLocatingGps by remember { mutableStateOf(false) }
     var isSubmitting by remember { mutableStateOf(false) }
     var showMapPicker by remember { mutableStateOf(false) }
-    var showSuccessDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     // Start location tracking for quick GPS detection
     LaunchedEffect(Unit) {
         locationManager.startTracking()
+    }
+
+    // Check if driver has already submitted an application (local + Supabase)
+    LaunchedEffect(cleanMobile) {
+        if (cleanMobile.isNotBlank()) {
+            val isSubmittedLocally = prefs.getBoolean("school_app_submitted_$cleanMobile", false)
+            if (isSubmittedLocally) {
+                applicationData = SchoolApplicationData(
+                    driverName = prefs.getString("school_app_name_$cleanMobile", "") ?: "",
+                    driverMobile = cleanMobile,
+                    vehicleNumber = prefs.getString("school_app_vehicle_$cleanMobile", "") ?: "",
+                    homeAddress = prefs.getString("school_app_address_$cleanMobile", "") ?: "",
+                    status = prefs.getString("school_app_status_$cleanMobile", "PENDING") ?: "PENDING",
+                    driverSchoolId = prefs.getString("school_app_id_$cleanMobile", null)
+                )
+            }
+            try {
+                val remoteApp = SchoolSupabaseClient.getSchoolTransportationApplication(cleanMobile)
+                if (remoteApp != null) {
+                    applicationData = remoteApp
+                    prefs.edit()
+                        .putBoolean("school_app_submitted_$cleanMobile", true)
+                        .putString("school_app_name_$cleanMobile", remoteApp.driverName)
+                        .putString("school_app_vehicle_$cleanMobile", remoteApp.vehicleNumber)
+                        .putString("school_app_address_$cleanMobile", remoteApp.homeAddress)
+                        .putString("school_app_status_$cleanMobile", remoteApp.status)
+                        .putString("school_app_id_$cleanMobile", remoteApp.driverSchoolId)
+                        .apply()
+                }
+            } catch (e: Exception) {}
+        }
     }
 
     // Pre-populate fields from profile and vehicle registration
@@ -163,54 +206,220 @@ fun SchoolTransportationScreen(
         return
     }
 
-    if (showSuccessDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showSuccessDialog = false
-                onBack()
-            },
-            icon = {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(Color(0xFFDCFCE7), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
+    // PENDING STATUS SCREEN (Shown when driver has already submitted the form)
+    if (applicationData != null) {
+        val app = applicationData!!
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xFFF8FAFC))
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .verticalScroll(scrollState)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
                     Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        tint = Color(0xFF16A34A),
-                        modifier = Modifier.size(28.dp)
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = GlipNavyPrimary
                     )
                 }
-            },
-            title = {
-                Text(
-                    text = "Registration Completed",
-                    fontWeight = FontWeight.Bold,
-                    color = GlipNavyPrimary
-                )
-            },
-            text = {
-                Text(
-                    text = "Your School Transportation registration details have been saved successfully! You will be connected with nearby school students.",
-                    color = Color(0xFF334155),
-                    fontSize = 14.sp
-                )
-            },
-            confirmButton = {
+                Spacer(modifier = Modifier.width(6.dp))
+                Column {
+                    Text(
+                        text = "School Transportation",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = GlipNavyPrimary
+                        )
+                    )
+                    Text(
+                        text = "Student route pooling service",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 1. Pending Status Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Surface(
+                        color = Color(0xFFFEF3C7),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, Color(0xFFFCD34D))
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Text(text = "⏳", fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = "UNDER REVIEW",
+                                color = Color(0xFFB45309),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Your Request is pending",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = GlipNavyPrimary,
+                            fontSize = 22.sp
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Our Team is checking Your Request",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF0284C7),
+                            fontSize = 14.sp
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Aapka registration form team ke paas pahunch gaya hai. Verification complete hone par school routes aapko assign kiye jayenge aur notifications ke through inform kiya jayega.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF64748B),
+                            lineHeight = 18.sp
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 2. Submitted Application Details Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Text(
+                        text = "Your Submitted Details",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = GlipNavyPrimary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    DetailItemRow(label = "Driver Name", value = app.driverName.ifBlank { profile?.fullName ?: "Driver" })
+                    DetailItemRow(label = "Mobile Number", value = if (app.driverMobile.isNotBlank()) "+91 ${app.driverMobile}" else (profile?.mobileNumber ?: ""))
+                    DetailItemRow(label = "Vehicle Number", value = app.vehicleNumber.ifBlank { vehicle?.registrationNumberDisplay ?: "Not set" })
+                    DetailItemRow(label = "Home Address", value = app.homeAddress.ifBlank { "Location saved" })
+                    DetailItemRow(
+                        label = "School Driver ID",
+                        value = app.driverSchoolId ?: "Pending (Verification ke baad assign hoga)",
+                        isHighlight = app.driverSchoolId != null
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 3. Assigned School Rides / Requests Section
+            Text(
+                text = "Assigned School Rides",
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = GlipNavyPrimary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(text = "🎒", fontSize = 36.sp)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "No Student Rides Assigned Yet",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = GlipNavyPrimary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Jaise hi aapke area me school students ki rides hamari team dwara aapko offer/assign hongi, vo tasks yahan show honge.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Refresh Status Button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
                 TextButton(
                     onClick = {
-                        showSuccessDialog = false
-                        onBack()
+                        coroutineScope.launch {
+                            val remoteApp = SchoolSupabaseClient.getSchoolTransportationApplication(cleanMobile)
+                            if (remoteApp != null) {
+                                applicationData = remoteApp
+                                Toast.makeText(context, "Status refreshed!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Your request is still in review.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 ) {
-                    Text("OK", fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                    Text(
+                        text = "🔄 Refresh Status",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0284C7),
+                        fontSize = 13.sp
+                    )
                 }
-            },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(16.dp)
-        )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+        return
     }
 
     Column(
@@ -490,7 +699,25 @@ fun SchoolTransportationScreen(
                     )
                     isSubmitting = false
                     if (success) {
-                        showSuccessDialog = true
+                        val clean = driverMobile.replace(Regex("[^0-9]"), "").takeLast(10)
+                        val submittedData = SchoolApplicationData(
+                            driverName = driverName,
+                            driverMobile = clean,
+                            vehicleNumber = vehicleNumber,
+                            homeAddress = homeAddress,
+                            homeLat = homeLat,
+                            homeLng = homeLng,
+                            status = "PENDING"
+                        )
+                        prefs.edit()
+                            .putBoolean("school_app_submitted_$clean", true)
+                            .putString("school_app_name_$clean", driverName)
+                            .putString("school_app_vehicle_$clean", vehicleNumber)
+                            .putString("school_app_address_$clean", homeAddress)
+                            .putString("school_app_status_$clean", "PENDING")
+                            .apply()
+                        applicationData = submittedData
+                        Toast.makeText(context, "Registration submitted successfully!", Toast.LENGTH_SHORT).show()
                     } else {
                         errorMessage = if (err?.contains("relation", ignoreCase = true) == true || err?.contains("PGRST205", ignoreCase = true) == true) {
                             "Table 'school_transportation' not found in database. Please run the SQL script in your Supabase SQL editor."
@@ -503,6 +730,32 @@ fun SchoolTransportationScreen(
         )
 
         Spacer(modifier = Modifier.height(30.dp))
+    }
+}
+
+@Composable
+private fun DetailItemRow(label: String, value: String, isHighlight: Boolean = false) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 5.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = Color(0xFF64748B)
+        )
+        Text(
+            text = value,
+            fontSize = 12.sp,
+            fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.SemiBold,
+            color = if (isHighlight) Color(0xFF16A34A) else GlipNavyPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 12.dp)
+        )
     }
 }
 
