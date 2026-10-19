@@ -119,7 +119,12 @@ fun GlipDriverNavHost(
         composable(Screen.DriverDetails.route) {
             DriverDetailsScreen(
                 initialName = regPersonalName.ifBlank { otpFullName },
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    val popped = navController.popBackStack(Screen.Register.route, inclusive = false)
+                    if (!popped) {
+                        navController.popBackStack()
+                    }
+                },
                 onNext = { name, plate, license ->
                     regPersonalName = name
                     regVehiclePlate = plate
@@ -137,9 +142,10 @@ fun GlipDriverNavHost(
                 fullName = regPersonalName,
                 vehiclePlate = regVehiclePlate,
                 licenseNumber = regLicenseNumber,
+                onBack = { navController.popBackStack() },
                 onRegistrationComplete = {
                     navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                        popUpTo(0) { inclusive = true }
                     }
                 }
             )

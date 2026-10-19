@@ -469,16 +469,8 @@ fun OtpVerificationScreen(
                                 SupabaseClient.upsertDriverProfile(restoredProfile, isOnline = true)
                                 onVerificationSuccess(false)
                             } else {
-                                val cleanMobile = mobileNumber.replace(Regex("[^0-9]"), "").takeLast(10)
-                                val newProfile = DriverProfile(
-                                    id = "drv_${System.currentTimeMillis() % 100000}",
-                                    fullName = fullName.trim(),
-                                    mobileNumber = cleanMobile,
-                                    email = null,
-                                    status = DriverStatus.DEMO_ACTIVE
-                                )
-                                repository.saveProfile(newProfile)
-                                SupabaseClient.upsertDriverProfile(newProfile, isOnline = true)
+                                // New driver registration: Do NOT save profile prematurely.
+                                // Profile and Vehicle will be fully saved in Step 3 (VehicleCategorySelectScreen).
                                 onVerificationSuccess(true)
                             }
                         }

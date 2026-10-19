@@ -1,5 +1,6 @@
 package com.glip.driver.ui.auth
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -49,17 +51,84 @@ import androidx.compose.ui.unit.sp
 import com.glip.driver.ui.theme.GlipNavyPrimary
 
 /**
+ * Auto-formats Indian vehicle registration plate with hyphens between segments:
+ * e.g.
+ * - CG - 08 - VH - 4565
+ * - CG - 05 - V - 5308
+ * - CG - 02 - 6548
+ */
+fun formatIndianVehiclePlate(input: String): String {
+    val raw = input.uppercase().filter { it.isLetterOrDigit() }
+    if (raw.isEmpty()) return ""
+
+    // BH Series: e.g. 22 BH 1234 AA
+    if (raw.length >= 2 && raw.take(2).all { it.isDigit() }) {
+        val year = raw.take(2)
+        var rest = raw.drop(2)
+        if (rest.startsWith("BH")) {
+            val bh = "BH"
+            rest = rest.drop(2)
+            val num = rest.takeWhile { it.isDigit() }.take(4)
+            rest = rest.drop(num.length)
+            val series = rest.takeWhile { it.isLetter() }.take(2)
+            val parts = listOf(year, bh, num, series).filter { it.isNotEmpty() }
+            return parts.joinToString(" - ")
+        }
+    }
+
+    // Standard State code (first 2 letters, e.g. CG)
+    if (raw.length <= 2) {
+        return raw
+    }
+
+    val state = raw.take(2)
+    var rest = raw.drop(2)
+
+    val rtoDigits = rest.takeWhile { it.isDigit() }.take(2)
+    if (rtoDigits.isEmpty()) {
+        return if (rest.isNotEmpty()) "$state - $rest" else state
+    }
+    rest = rest.drop(rtoDigits.length)
+
+    if (rest.isEmpty()) {
+        return "$state - $rtoDigits"
+    }
+
+    val seriesLetters = rest.takeWhile { it.isLetter() }.take(2)
+    if (seriesLetters.isNotEmpty()) {
+        rest = rest.drop(seriesLetters.length)
+        val numberDigits = rest.takeWhile { it.isDigit() }.take(4)
+        return if (numberDigits.isNotEmpty()) {
+            "$state - $rtoDigits - $seriesLetters - $numberDigits"
+        } else {
+            "$state - $rtoDigits - $seriesLetters"
+        }
+    } else {
+        val numberDigits = rest.takeWhile { it.isDigit() }.take(4)
+        return if (numberDigits.isNotEmpty()) {
+            "$state - $rtoDigits - $numberDigits"
+        } else {
+            "$state - $rtoDigits"
+        }
+    }
+}
+
+/**
  * Validates Indian vehicle registration plate against the 3 user-specified accepted formats:
- * 1. CG 08 VH 5308 (State + 1-2 digits RTO + 1-2 letters Series + 4 digits Number)
- * 2. CG 08 V 53 08 (State + 1-2 digits RTO + 1-2 letters Series + 2 digits + 2 digits)
- * 3. CG 08 5308 (State + 1-2 digits RTO + 4 digits Number)
+ * 1. CG - 08 - VH - 4565 (State + 1-2 digits RTO + 1-2 letters Series + 1-4 digits Number)
+ * 2. CG - 05 - V - 5308 or CG - 05 - V 5308 (State + 1-2 digits RTO + 1 letter Series + 1-4 digits Number)
+ * 3. CG - 02 - 6548 (State + 1-2 digits RTO + 1-4 digits Number)
+ * Also supports BH series and handles user-entered spaces or hyphens gracefully.
  */
 fun isValidIndianVehiclePlate(rawInput: String): Boolean {
-    val clean = rawInput.trim().uppercase()
-    val p1 = Regex("^[A-Z]{2}\\s*\\d{1,2}\\s*[A-Z]{1,2}\\s*\\d{4}$")
-    val p2 = Regex("^[A-Z]{2}\\s*\\d{1,2}\\s*[A-Z]{1,2}\\s*\\d{2}\\s*\\d{2}$")
-    val p3 = Regex("^[A-Z]{2}\\s*\\d{1,2}\\s*\\d{4}$")
-    return p1.matches(clean) || p2.matches(clean) || p3.matches(clean)
+    val clean = rawInput.replace(" ", "").replace("-", "").trim().uppercase()
+    if (clean.length < 5 || clean.length > 10) return false
+
+    val pWithSeries = Regex("^[A-Z]{2}\\d{1,2}[A-Z]{1,2}\\d{1,4}$")
+    val pWithoutSeries = Regex("^[A-Z]{2}\\d{1,2}\\d{1,4}$")
+    val pBharatSeries = Regex("^\\d{2}BH\\d{1,4}[A-Z]{1,2}$")
+
+    return pWithSeries.matches(clean) || pWithoutSeries.matches(clean) || pBharatSeries.matches(clean)
 }
 
 @Composable
@@ -69,6 +138,10 @@ fun DriverDetailsScreen(
     onNext: (fullName: String, vehiclePlate: String, licenseNumber: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    BackHandler {
+        onBack()
+    }
+
     var fullName by remember { mutableStateOf(initialName) }
     var vehiclePlate by remember { mutableStateOf("") }
     var licenseNumber by remember { mutableStateOf("") }
@@ -89,19 +162,36 @@ fun DriverDetailsScreen(
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Step indicator & Top Prominent Bold Title
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = Color(0xFFEFF6FF),
-            border = BorderStroke(1.dp, Color(0xFFBAE6FD))
+        // Top Navigation & Step Indicator
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = "STEP 2 OF 3",
-                color = Color(0xFF0284C7),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-            )
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = GlipNavyPrimary
+                )
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFEFF6FF),
+                border = BorderStroke(1.dp, Color(0xFFBAE6FD))
+            ) {
+                Text(
+                    text = "STEP 2 OF 3",
+                    color = Color(0xFF0284C7),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -168,14 +258,15 @@ fun DriverDetailsScreen(
         Spacer(modifier = Modifier.height(6.dp))
         OutlinedTextField(
             value = vehiclePlate,
-            onValueChange = {
-                vehiclePlate = it.uppercase()
-                showPlateError = it.isNotBlank() && !isValidIndianVehiclePlate(it)
+            onValueChange = { input ->
+                val formatted = formatIndianVehiclePlate(input)
+                vehiclePlate = formatted
+                showPlateError = formatted.isNotBlank() && !isValidIndianVehiclePlate(formatted)
             },
             placeholder = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("🚗 ", fontSize = 14.sp)
-                    Text("Vehicle Plate Number (e.g. CG 08 VH 5308)", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                    Text("e.g. CG - 08 - VH - 4565", color = Color(0xFF94A3B8), fontSize = 13.sp)
                 }
             },
             leadingIcon = {
@@ -208,7 +299,7 @@ fun DriverDetailsScreen(
         if (showPlateError) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Allowed formats: CG 08 VH 5308, CG 08 V 53 08, or CG 08 5308",
+                text = "Allowed: CG - 08 - VH - 4565, CG - 05 - V - 5308, or CG - 02 - 6548",
                 color = Color(0xFFDC2626),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
@@ -216,7 +307,7 @@ fun DriverDetailsScreen(
         } else if (isPlateValid) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "✓ Valid Vehicle Registration Number",
+                text = "✓ Valid Vehicle Registration Number ($vehiclePlate)",
                 color = Color(0xFF16A34A),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
@@ -224,7 +315,7 @@ fun DriverDetailsScreen(
         } else {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Supported: CG 08 VH 5308, CG 08 V 53 08, CG 08 5308",
+                text = "Supported: CG - 08 - VH - 4565, CG - 05 - V - 5308, CG - 02 - 6548",
                 color = Color(0xFF94A3B8),
                 fontSize = 11.sp
             )
