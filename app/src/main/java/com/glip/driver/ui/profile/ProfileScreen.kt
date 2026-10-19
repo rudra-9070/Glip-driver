@@ -1,5 +1,6 @@
 package com.glip.driver.ui.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -117,68 +118,58 @@ fun ProfileScreen(
             )
         }
 
-        // Driver Identity Header Card
+        // Driver Identity Header Card (Compact Box)
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = GlipNavyPrimary)
         ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF1E293B)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Driver Avatar",
-                            tint = GlipAccentTeal,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column {
-                        Text(
-                            text = profile?.fullName ?: "Driver",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        )
-                        Text(
-                            text = profile?.maskedMobile ?: "+91 98******10",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF94A3B8))
-                        )
-                        profile?.email?.let {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Surface(
-                    color = Color(0xFF334155),
-                    shape = RoundedCornerShape(8.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF1E293B)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Driver Status: ${profile?.status?.label ?: "Active"}",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFFCBD5E1),
-                                fontWeight = FontWeight.Medium
-                            )
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Driver Avatar",
+                        tint = GlipAccentTeal,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = profile?.fullName ?: "Driver",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
-                    }
+                    )
+                    Text(
+                        text = profile?.maskedMobile ?: "+91 98******10",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF94A3B8))
+                    )
+                }
+                Surface(
+                    color = Color(0xFF16A34A).copy(alpha = 0.2f),
+                    border = BorderStroke(1.dp, Color(0xFF16A34A)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = profile?.status?.label ?: "Active",
+                        color = Color(0xFF4ADE80),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
                 }
             }
         }
@@ -193,7 +184,7 @@ fun ProfileScreen(
         SettingsItemRow(
             icon = Icons.Default.DirectionsCar,
             title = "Vehicle Details",
-            subtitle = "${vehicle?.displayName} • ${vehicle?.totalCapacity} capacity",
+            subtitle = "${vehicle?.displayName ?: "Vehicle"} • ${vehicle?.totalCapacity ?: 4} capacity",
             onClick = onEditVehicle
         )
 
@@ -206,8 +197,8 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Future Services
-        GlipSectionHeader(title = "Future Offerings (Preview)")
+        // Future Services / Another Services
+        GlipSectionHeader(title = "Another Services")
 
         SettingsItemRow(
             icon = Icons.Default.DirectionsCar,
@@ -219,7 +210,7 @@ fun ProfileScreen(
         SettingsItemRow(
             icon = Icons.Default.Star,
             title = "School Transportation",
-            subtitle = "Coming soon — dedicated route pooling for students",
+            subtitle = "Dedicated route pooling registration for students",
             onClick = onNavigateToSchool
         )
 

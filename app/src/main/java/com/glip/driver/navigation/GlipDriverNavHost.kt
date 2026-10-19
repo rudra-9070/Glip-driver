@@ -20,6 +20,7 @@ import com.glip.driver.ui.onboarding.VehicleSetupScreen
 import com.glip.driver.ui.profile.ProfileScreen
 import com.glip.driver.ui.requests.RequestsScreen
 import com.glip.driver.ui.services.ComingSoonScreen
+import com.glip.driver.ui.services.SchoolTransportationScreen
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -221,9 +222,8 @@ fun GlipDriverNavHost(
             )
         }
         composable(Screen.SchoolService.route) {
-            ComingSoonScreen(
-                title = "School Transportation (Coming Soon)",
-                description = "Safe scheduled pooling for neighborhood students. Background check badges and dedicated safety cameras will be enabled soon.",
+            SchoolTransportationScreen(
+                repository = repository,
                 onBack = { navController.popBackStack() }
             )
         }
