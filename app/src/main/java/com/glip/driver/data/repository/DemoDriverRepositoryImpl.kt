@@ -57,7 +57,10 @@ class DemoDriverRepositoryImpl(
                 )
                 if (activeTrips.isNotEmpty()) {
                     _tripsFlow.value = activeTrips
-                    val totalOccupied = activeTrips.sumOf { it.requestedSeats }
+                    var totalOccupied = 0
+                    for (t in activeTrips) {
+                        totalOccupied += t.requestedSeats
+                    }
                     val currentVeh = _vehicleFlow.value
                     val newOccupied = totalOccupied.coerceAtMost(currentVeh.totalCapacity)
                     val newAvailable = (currentVeh.totalCapacity - newOccupied).coerceAtLeast(0)

@@ -9,6 +9,8 @@ import com.glip.driver.domain.model.VehicleCategory
 import com.glip.driver.domain.model.PassengerRequest
 import com.glip.driver.domain.model.RouteMatchResult
 import com.glip.driver.domain.model.CompatibilityLevel
+import com.glip.driver.domain.model.DemoTrip
+import com.glip.driver.domain.model.DemoTripStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
