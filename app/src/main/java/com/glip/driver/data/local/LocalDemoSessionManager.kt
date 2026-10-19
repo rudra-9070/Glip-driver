@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.glip.driver.domain.model.DriverProfile
 import com.glip.driver.domain.model.DriverStatus
+import com.glip.driver.domain.model.Vehicle
+import com.glip.driver.domain.model.VehicleCategory
 
 /**
  * Lightweight local demo persistence using standard Android SharedPreferences.
@@ -22,6 +24,12 @@ class LocalDemoSessionManager(context: Context) {
         private const val KEY_MOBILE = "driver_mobile"
         private const val KEY_EMAIL = "driver_email"
         private const val KEY_IS_AVAILABLE = "is_available"
+        private const val KEY_VEHICLE_ID = "vehicle_id"
+        private const val KEY_VEHICLE_NAME = "vehicle_name"
+        private const val KEY_VEHICLE_CATEGORY = "vehicle_category"
+        private const val KEY_VEHICLE_PLATE = "vehicle_plate"
+        private const val KEY_TOTAL_CAPACITY = "total_capacity"
+        private const val KEY_AVAILABLE_SEATS = "available_seats"
     }
 
     fun saveProfile(profile: DriverProfile) {
@@ -49,6 +57,37 @@ class LocalDemoSessionManager(context: Context) {
             mobileNumber = mobile,
             email = email,
             status = DriverStatus.DEMO_ACTIVE
+        )
+    }
+
+    fun saveVehicle(vehicle: Vehicle) {
+        prefs.edit()
+            .putString(KEY_VEHICLE_ID, vehicle.id)
+            .putString(KEY_VEHICLE_NAME, vehicle.displayName)
+            .putString(KEY_VEHICLE_CATEGORY, vehicle.category.name)
+            .putString(KEY_VEHICLE_PLATE, vehicle.registrationNumberDisplay)
+            .putInt(KEY_TOTAL_CAPACITY, vehicle.totalCapacity)
+            .putInt(KEY_AVAILABLE_SEATS, vehicle.availableSeats)
+            .apply()
+    }
+
+    fun getVehicle(): Vehicle? {
+        val catName = prefs.getString(KEY_VEHICLE_CATEGORY, null) ?: return null
+        val cat = try { VehicleCategory.valueOf(catName) } catch (_: Exception) { VehicleCategory.CAR }
+        val name = prefs.getString(KEY_VEHICLE_NAME, "My Vehicle") ?: "My Vehicle"
+        val plate = prefs.getString(KEY_VEHICLE_PLATE, "CG 08 0000") ?: "CG 08 0000"
+        val totalCap = prefs.getInt(KEY_TOTAL_CAPACITY, cat.defaultCapacity)
+        val avail = prefs.getInt(KEY_AVAILABLE_SEATS, totalCap)
+        val id = prefs.getString(KEY_VEHICLE_ID, "veh_local") ?: "veh_local"
+
+        return Vehicle(
+            id = id,
+            displayName = name,
+            category = cat,
+            registrationNumberDisplay = plate,
+            totalCapacity = totalCap,
+            occupiedSeats = (totalCap - avail).coerceAtLeast(0),
+            availableSeats = avail
         )
     }
 

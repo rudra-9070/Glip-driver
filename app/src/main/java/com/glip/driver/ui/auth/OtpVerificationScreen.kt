@@ -452,17 +452,35 @@ fun OtpVerificationScreen(
                             )
                             onVerificationSuccess(false)
                         } else {
-                            // New Registration flow
-                            val newProfile = DriverProfile(
-                                id = "drv_${System.currentTimeMillis() % 100000}",
-                                fullName = fullName.trim(),
-                                mobileNumber = mobileNumber.trim(),
-                                email = null,
-                                status = DriverStatus.DEMO_ACTIVE
-                            )
-                            repository.saveProfile(newProfile)
-                            SupabaseClient.upsertDriverProfile(newProfile, isOnline = true)
-                            onVerificationSuccess(true)
+                            // New Registration flow: First check if driver already exists in Supabase
+                            val remoteDriverData = SupabaseClient.getDriverWithVehicleByMobile(mobileNumber)
+                            if (remoteDriverData != null) {
+                                // Existing driver found! Auto-restore their profile & vehicle
+                                val existingProfile = remoteDriverData.first
+                                val existingVehicle = remoteDriverData.second
+                                val finalName = if (fullName.trim().isNotBlank()) fullName.trim() else existingProfile.fullName
+                                val restoredProfile = existingProfile.copy(fullName = finalName)
+
+                                repository.saveProfile(restoredProfile)
+                                if (existingVehicle != null) {
+                                    repository.updateVehicle(existingVehicle)
+                                }
+                                repository.setAvailable(true)
+                                SupabaseClient.upsertDriverProfile(restoredProfile, isOnline = true)
+                                onVerificationSuccess(false)
+                            } else {
+                                val cleanMobile = mobileNumber.replace(Regex("[^0-9]"), "").takeLast(10)
+                                val newProfile = DriverProfile(
+                                    id = "drv_${System.currentTimeMillis() % 100000}",
+                                    fullName = fullName.trim(),
+                                    mobileNumber = cleanMobile,
+                                    email = null,
+                                    status = DriverStatus.DEMO_ACTIVE
+                                )
+                                repository.saveProfile(newProfile)
+                                SupabaseClient.upsertDriverProfile(newProfile, isOnline = true)
+                                onVerificationSuccess(true)
+                            }
                         }
                     }
                 } else {

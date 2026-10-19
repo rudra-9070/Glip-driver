@@ -11,6 +11,10 @@ import com.glip.driver.domain.model.PassengerRequest
 import com.glip.driver.domain.model.Vehicle
 import com.glip.driver.domain.repository.DriverRepository
 import com.glip.driver.domain.usecase.RouteMatchingEngine
+import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,7 +27,7 @@ class DemoDriverRepositoryImpl(
     private val _profileFlow = MutableStateFlow<DriverProfile?>(sessionManager.getProfile())
     override val profileFlow: Flow<DriverProfile?> = _profileFlow.asStateFlow()
 
-    private val _vehicleFlow = MutableStateFlow(DemoSeedData.defaultVehicle())
+    private val _vehicleFlow = MutableStateFlow(sessionManager.getVehicle() ?: DemoSeedData.defaultVehicle())
     override val vehicleFlow: Flow<Vehicle> = _vehicleFlow.asStateFlow()
 
     private val _routeFlow = MutableStateFlow(DemoSeedData.defaultRoute())
@@ -40,6 +44,35 @@ class DemoDriverRepositoryImpl(
 
     init {
         recomputePassengerRequests()
+        restoreActiveTripsFromSupabase()
+    }
+
+    private fun restoreActiveTripsFromSupabase() {
+        val prof = _profileFlow.value ?: return
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val activeTrips = com.glip.driver.data.remote.SupabaseClient.fetchActiveTripsForDriver(
+                    driverId = prof.id,
+                    driverMobile = prof.mobileNumber
+                )
+                if (activeTrips.isNotEmpty()) {
+                    _tripsFlow.value = activeTrips
+                    val totalOccupied = activeTrips.sumOf { it.requestedSeats }
+                    val currentVeh = _vehicleFlow.value
+                    val newOccupied = totalOccupied.coerceAtMost(currentVeh.totalCapacity)
+                    val newAvailable = (currentVeh.totalCapacity - newOccupied).coerceAtLeast(0)
+                    val updatedVeh = currentVeh.copy(
+                        occupiedSeats = newOccupied,
+                        availableSeats = newAvailable
+                    )
+                    _vehicleFlow.value = updatedVeh
+                    sessionManager.saveVehicle(updatedVeh)
+                    Log.d("DemoDriverRepository", "Restored ${activeTrips.size} active trips from Supabase for driver ${prof.fullName}")
+                }
+            } catch (e: Exception) {
+                Log.w("DemoDriverRepository", "restoreActiveTripsFromSupabase failed: ${e.message}")
+            }
+        }
     }
 
     private fun recomputePassengerRequests() {
@@ -68,6 +101,7 @@ class DemoDriverRepositoryImpl(
     override suspend fun saveProfile(profile: DriverProfile) {
         sessionManager.saveProfile(profile)
         _profileFlow.value = profile
+        restoreActiveTripsFromSupabase()
     }
 
     override suspend fun logout() {
@@ -88,6 +122,7 @@ class DemoDriverRepositoryImpl(
     override suspend fun getVehicle(): Vehicle = _vehicleFlow.value
 
     override suspend fun updateVehicle(vehicle: Vehicle) {
+        sessionManager.saveVehicle(vehicle)
         _vehicleFlow.value = vehicle
         recomputePassengerRequests()
     }

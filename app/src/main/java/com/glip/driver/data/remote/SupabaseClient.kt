@@ -146,8 +146,9 @@ object SupabaseClient {
      */
     suspend fun getDriverWithVehicleByMobile(mobileNumber: String): Pair<DriverProfile, Vehicle?>? = withContext(Dispatchers.IO) {
         try {
-            val enc = java.net.URLEncoder.encode(mobileNumber.trim(), "UTF-8")
-            val endpoint = "/drivers?mobile_number=eq.$enc&select=*"
+            val cleanMobile = mobileNumber.replace(Regex("[^0-9]"), "").takeLast(10)
+            if (cleanMobile.length < 10) return@withContext null
+            val endpoint = "/drivers?or=(mobile_number.eq.$cleanMobile,mobile_number.eq.%2B91$cleanMobile,mobile_number.ilike.*$cleanMobile*)&select=*"
             val conn = openConnection(endpoint, "GET")
             val code = conn.responseCode
             if (code in 200..299) {
@@ -156,13 +157,13 @@ object SupabaseClient {
                 if (arr.length() > 0) {
                     val obj = arr.getJSONObject(0)
                     val name = obj.optString("full_name", "Glip Driver")
-                    val id = obj.optString("id", "drv_${mobileNumber.takeLast(4)}")
+                    val id = obj.optString("id", "drv_${cleanMobile.takeLast(4)}")
                     val license = obj.optString("license_number", "").takeIf { it.isNotBlank() }
                     val plate = obj.optString("vehicle_plate", obj.optString("vehicle_number", "")).takeIf { it.isNotBlank() }
                     val profile = DriverProfile(
                         id = id,
                         fullName = name,
-                        mobileNumber = mobileNumber,
+                        mobileNumber = cleanMobile,
                         email = null,
                         licenseNumber = license,
                         vehiclePlate = plate,
@@ -197,6 +198,75 @@ object SupabaseClient {
             Log.w(TAG, "getDriverWithVehicleByMobile failed: ${e.message}")
             null
         }
+    }
+
+    /**
+     * Looks up all active rides assigned to this driver in Supabase (status ACCEPTED or IN_PROGRESS).
+     * Used on app startup/resume so active orders are never lost after app kill.
+     */
+    suspend fun fetchActiveTripsForDriver(driverId: String?, driverMobile: String?): List<DemoTrip> = withContext(Dispatchers.IO) {
+        val list = mutableListOf<DemoTrip>()
+        try {
+            val cleanMobile = driverMobile?.replace(Regex("[^0-9]"), "")?.takeLast(10) ?: ""
+            val filter = if (!driverId.isNullOrBlank() && cleanMobile.isNotBlank()) {
+                "or=(driver_id.eq.$driverId,driver_id.eq.$cleanMobile,driver_id.ilike.*$cleanMobile*)"
+            } else if (!driverId.isNullOrBlank()) {
+                "driver_id.eq.$driverId"
+            } else if (cleanMobile.isNotBlank()) {
+                "or=(driver_id.eq.$cleanMobile,driver_id.ilike.*$cleanMobile*)"
+            } else {
+                return@withContext emptyList()
+            }
+
+            val endpoint = "/ride_requests?status=in.(ACCEPTED,IN_PROGRESS)&$filter&order=created_at.desc&limit=5"
+            val conn = openConnection(endpoint, "GET")
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val response = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                val arr = JSONArray(response)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val reqId = obj.optString("id")
+                    val statusStr = obj.optString("status", "ACCEPTED")
+                    val isPickedUp = statusStr.equals("IN_PROGRESS", ignoreCase = true)
+                    val fare = obj.optDouble("fare_amount", 40.0).toInt()
+                    val pName = obj.optString("passenger_name", "Passenger")
+                    val pMobile = obj.optString("passenger_mobile", "")
+                    val pickup = obj.optString("pickup_name", "Pickup Location")
+                    val drop = obj.optString("drop_name", "Drop Location")
+                    val pLat = obj.optDouble("pickup_lat", 0.0)
+                    val pLng = obj.optDouble("pickup_lng", 0.0)
+                    val dLat = obj.optDouble("drop_lat", 0.0)
+                    val dLng = obj.optDouble("drop_lng", 0.0)
+                    val seats = obj.optInt("requested_seats", 1)
+                    val otpVal = obj.optString("otp", "")
+
+                    list.add(
+                        DemoTrip(
+                            id = reqId,
+                            requestId = reqId,
+                            pickupName = pickup,
+                            dropoffName = drop,
+                            pickupLat = pLat,
+                            pickupLng = pLng,
+                            dropoffLat = dLat,
+                            dropoffLng = dLng,
+                            passengerAlias = pName,
+                            passengerMobile = pMobile,
+                            requestedSeats = seats,
+                            scheduledTimeDisplay = "Now",
+                            illustrativeFare = fare,
+                            status = DemoTripStatus.ACCEPTED,
+                            otp = otpVal,
+                            isPickedUp = isPickedUp
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchActiveTripsForDriver failed: ${e.message}")
+        }
+        list
     }
 
     /**
