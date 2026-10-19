@@ -544,67 +544,6 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
 
-                // 3. Vehicle Setup & Edit Card (with Pencil Icon)
-                val currentVeh = vehicle
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF8FAFC),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = when (currentVeh?.category) {
-                                    VehicleCategory.AUTO_RICKSHAW -> "🛺"
-                                    VehicleCategory.E_RICKSHAW -> "🛺"
-                                    VehicleCategory.CAR -> "🚗"
-                                    VehicleCategory.VAN -> "🚐"
-                                    VehicleCategory.MINI_BUS -> "🚌"
-                                    else -> "🚗"
-                                },
-                                fontSize = 22.sp
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = currentVeh?.displayName?.ifBlank { currentVeh.category.displayName } ?: "My Vehicle",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    color = GlipNavyPrimary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "${currentVeh?.registrationNumberDisplay ?: "Plate"} • ${currentVeh?.totalCapacity ?: 4} Seats",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF64748B)
-                                )
-                            }
-                        }
-                        IconButton(
-                            onClick = {
-                                coroutineScope.launch { drawerState.close() }
-                                onEditVehicle()
-                            },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Edit Vehicle",
-                                tint = Color(0xFF0284C7),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-
                 // Floating Overlay Permission Banner (Uber / Rapido Style Alert)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !hasOverlayPermission) {
                     Card(

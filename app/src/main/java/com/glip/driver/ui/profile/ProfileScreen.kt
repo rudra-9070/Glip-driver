@@ -190,13 +190,6 @@ fun ProfileScreen(
         GlipSectionHeader(title = "Configurations")
 
         SettingsItemRow(
-            icon = Icons.Default.DirectionsCar,
-            title = "Vehicle Details",
-            subtitle = "${vehicle?.displayName ?: "Vehicle"} • ${vehicle?.totalCapacity ?: 4} capacity",
-            onClick = onEditVehicle
-        )
-
-        SettingsItemRow(
             icon = Icons.Default.Place,
             title = "Corridor Route",
             subtitle = "${route?.originName} → ${route?.destinationName}",
