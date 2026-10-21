@@ -212,6 +212,9 @@ fun VehicleSetupScreen(
                         }
                     }
                 }
+                if (rowItems.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
             Spacer(modifier = Modifier.height(14.dp))
         }
