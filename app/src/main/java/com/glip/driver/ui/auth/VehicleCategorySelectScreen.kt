@@ -85,7 +85,29 @@ fun VehicleCategorySelectScreen(
 
     val vehicleCategories = remember {
         listOf(
-            // Row 1: Van | Auto
+            // Row 1: Auto | E - Rickshaw
+            VehicleTypeItem(
+                category = VehicleCategory.AUTO_RICKSHAW,
+                title = "Auto",
+                capacity = 5,
+                iconEmoji = "🛺",
+                description = "5 Seater route auto"
+            ),
+            VehicleTypeItem(
+                category = VehicleCategory.E_RICKSHAW,
+                title = "E - Rickshaw",
+                capacity = 4,
+                iconEmoji = "🛺",
+                description = "4 Seater battery rickshaw"
+            ),
+            // Row 2: CAB | Van
+            VehicleTypeItem(
+                category = VehicleCategory.CAR,
+                title = "CAB",
+                capacity = 4,
+                iconEmoji = "🚗",
+                description = "4 Seater AC cab"
+            ),
             VehicleTypeItem(
                 category = VehicleCategory.VAN,
                 title = "Van",
@@ -93,42 +115,13 @@ fun VehicleCategorySelectScreen(
                 iconEmoji = "🚐",
                 description = "Omni / Eeco / Bolero"
             ),
-            VehicleTypeItem(
-                category = VehicleCategory.AUTO_RICKSHAW,
-                title = "Auto",
-                capacity = 7,
-                iconEmoji = "🛺",
-                description = "Standard route auto"
-            ),
-            // Row 2: Bus | Bike
+            // Row 3: Bus
             VehicleTypeItem(
                 category = VehicleCategory.MINI_BUS,
                 title = "Bus",
                 capacity = 20,
                 iconEmoji = "🚌",
                 description = "Mini bus or shuttle"
-            ),
-            VehicleTypeItem(
-                category = VehicleCategory.BIKE,
-                title = "Bike",
-                capacity = 1,
-                iconEmoji = "🛵",
-                description = "Solo passenger ride"
-            ),
-            // Row 3: Car | E - Rickshaw
-            VehicleTypeItem(
-                category = VehicleCategory.CAR,
-                title = "Car",
-                capacity = 4,
-                iconEmoji = "🚗",
-                description = "4 Seater AC cab"
-            ),
-            VehicleTypeItem(
-                category = VehicleCategory.E_RICKSHAW,
-                title = "E - Rickshaw",
-                capacity = 5,
-                iconEmoji = "🛺",
-                description = "5 Seater battery rickshaw"
             )
         )
     }

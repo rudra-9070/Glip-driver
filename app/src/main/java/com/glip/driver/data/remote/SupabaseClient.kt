@@ -546,12 +546,12 @@ object SupabaseClient {
                     val seats = obj.optInt("requested_seats", 1)
 
                     // Vehicle Category Filter:
-                    // Strict separation: Bike gets Bike, Auto gets Auto, E-Rickshaw gets E-Rickshaw, Cab gets Cab
+                    // Strict separation: Auto gets Auto, E-Rickshaw gets E-Rickshaw, Cab gets Cab
                     if (driverVehicleCategory != null) {
                         val isCategoryMatch = when (driverVehicleCategory) {
-                            VehicleCategory.BIKE -> seats == 1
-                            VehicleCategory.E_RICKSHAW -> seats == 5 || (isDirectMatch && seats <= 5)
-                            VehicleCategory.AUTO_RICKSHAW -> seats == 7 || (isDirectMatch && seats <= 7)
+                            VehicleCategory.BIKE -> false
+                            VehicleCategory.E_RICKSHAW -> seats == 4 || (isDirectMatch && seats <= 4)
+                            VehicleCategory.AUTO_RICKSHAW -> seats == 5 || (isDirectMatch && seats <= 5)
                             VehicleCategory.CAR -> seats == 4 || (isDirectMatch && seats <= 4)
                             VehicleCategory.VAN -> seats in 4..7
                             VehicleCategory.MINI_BUS -> seats > 7

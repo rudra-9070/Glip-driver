@@ -27,7 +27,7 @@ object DemoSeedData {
         displayName = "Green Bajaj RE Auto",
         category = VehicleCategory.AUTO_RICKSHAW,
         registrationNumberDisplay = "DL-01-DEMO-2024",
-        totalCapacity = 7,
+        totalCapacity = 5,
         occupiedSeats = 0
     )
 

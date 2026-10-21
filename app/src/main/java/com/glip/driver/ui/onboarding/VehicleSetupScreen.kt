@@ -74,12 +74,11 @@ fun VehicleSetupScreen(
 
     val setupCategories = remember {
         listOf(
+            SetupVehicleItem(VehicleCategory.AUTO_RICKSHAW, "Auto", 5, "🛺"),
+            SetupVehicleItem(VehicleCategory.E_RICKSHAW, "E - Rickshaw", 4, "🛺"),
+            SetupVehicleItem(VehicleCategory.CAR, "CAB", 4, "🚗"),
             SetupVehicleItem(VehicleCategory.VAN, "Van", 7, "🚐"),
-            SetupVehicleItem(VehicleCategory.AUTO_RICKSHAW, "Auto", 7, "🛺"),
-            SetupVehicleItem(VehicleCategory.MINI_BUS, "Bus", 20, "🚌"),
-            SetupVehicleItem(VehicleCategory.BIKE, "Bike", 1, "🛵"),
-            SetupVehicleItem(VehicleCategory.CAR, "Car", 4, "🚗"),
-            SetupVehicleItem(VehicleCategory.E_RICKSHAW, "E - Rickshaw", 5, "🛺")
+            SetupVehicleItem(VehicleCategory.MINI_BUS, "Bus", 20, "🚌")
         )
     }
 
