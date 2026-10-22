@@ -374,7 +374,6 @@ object SupabaseClient {
         destLng: Double,
         isActive: Boolean
     ): Boolean = withContext(Dispatchers.IO) {
-        if (destinationName.isBlank() || destLat == 0.0 || destLng == 0.0) return@withContext false
         try {
             var uuid = if (!driverIdentifier.isNullOrBlank() && isValidUuid(driverIdentifier)) driverIdentifier else null
             if (uuid == null && !mobileNumber.isNullOrBlank()) {
@@ -384,13 +383,17 @@ object SupabaseClient {
                 }
             }
 
-            // Clean up any stale routes for this driver first
+            // Clean up any existing routes for this driver first
             if (uuid != null) {
                 try {
                     val delConn = openConnection("/driver_routes?driver_id=eq.$uuid", "DELETE")
                     delConn.responseCode
                     delConn.disconnect()
                 } catch (e: Exception) {}
+            }
+
+            if (!isActive || destinationName.isBlank() || destLat == 0.0 || destLng == 0.0) {
+                return@withContext true // Successfully deactivated/cleared
             }
 
             val endpoint = "/driver_routes"
