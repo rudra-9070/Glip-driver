@@ -3,6 +3,7 @@ package com.glip.driver
 import android.app.Application
 import android.content.Context
 import androidx.multidex.MultiDex
+import com.glip.driver.ads.AdManager
 import com.glip.driver.data.local.LocalDemoSessionManager
 import com.glip.driver.data.repository.DemoDriverRepositoryImpl
 import com.glip.driver.domain.usecase.RouteMatchingEngine
@@ -53,6 +54,13 @@ class GlipDriverApplication : Application() {
             val osmTileCache = File(osmBasePath, "tiles")
             osmTileCache.mkdirs()
             osmConfig.osmdroidTileCache = osmTileCache
+        } catch (e: Exception) {
+            // Safe fallback
+        }
+
+        // Initialize Glip Driver AdManager for fast live advertisement sync & zero-lag frame 0 cache
+        try {
+            AdManager.initialize(this)
         } catch (e: Exception) {
             // Safe fallback
         }

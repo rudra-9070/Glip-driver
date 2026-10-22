@@ -98,6 +98,8 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.glip.driver.ads.AdBannerBox
+import com.glip.driver.ads.AdConfig
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.glip.driver.data.repository.DemoDriverRepositoryImpl
@@ -632,59 +634,70 @@ fun HomeScreen(
                 .fillMaxSize()
                 .background(Color(0xFFF8FAFC))
         ) {
-            // Top Advertisement Space (Prominent Banner at the top of screen)
-            Card(
+            // Top Advertisement Space (Fixed 250dp Standard Banner connected to Admin Panel)
+            AdBannerBox(
+                slotId = AdConfig.SLOT_DRIVER_HOME_BANNER,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(250.dp)
                     .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 4.dp),
                 shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(250.dp)
-                        .background(Color(0xFFFAFAFA)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Subtle Ad tag in top-right
-                    Box(
+                fallbackContent = {
+                    Card(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 8.dp, end = 10.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFFF1F5F9))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .fillMaxWidth()
+                            .height(250.dp)
+                            .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 4.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
-                        Text(
-                            text = "AD",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF94A3B8)
-                        )
-                    }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(250.dp)
+                                .background(Color(0xFFFAFAFA)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Subtle Ad tag in top-right
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 8.dp, end = 10.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color(0xFFF1F5F9))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "AD",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
 
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "Advertisement Space",
-                            color = Color(0xFF64748B),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Sponsored Banner Area",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 12.sp
-                        )
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Advertisement Space",
+                                    color = Color(0xFF64748B),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Sponsored Banner Area",
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
                     }
                 }
-            }
+            )
 
             // High-visibility GPS Alert Banner (if GPS is turned off on device)
             if (!isGpsEnabled || !hasPermission) {

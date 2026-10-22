@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
+import com.glip.driver.ads.AdManager
 import com.glip.driver.data.local.LocalDemoSessionManager
 import com.glip.driver.data.repository.DemoDriverRepositoryImpl
 import com.glip.driver.domain.usecase.RouteMatchingEngine
@@ -25,6 +26,10 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         isAppInForeground = true
         com.glip.driver.service.FloatingRideOverlayManager.dismissOverlay()
+        // Refresh live driver ad placements on returning to foreground
+        try {
+            AdManager.refresh()
+        } catch (_: Exception) {}
     }
 
     override fun onPause() {
