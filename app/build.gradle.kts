@@ -11,8 +11,8 @@ android {
         applicationId = "com.glip.driver"
         minSdk = 24
         targetSdk = 35
-        versionCode = 46
-        versionName = "1.4.4"
+        versionCode = 47
+        versionName = "1.4.5"
         multiDexEnabled = true
 
         ndk {

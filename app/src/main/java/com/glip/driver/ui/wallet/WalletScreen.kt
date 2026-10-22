@@ -87,6 +87,7 @@ data class WalletTransaction(
     val date: String
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WalletScreen(
     onBack: () -> Unit,
@@ -624,7 +625,6 @@ fun WalletScreen(
     }
 
     // "Add Money to Wallet" Bottom Sheet Modal matching Screenshot 1
-    @OptIn(ExperimentalMaterial3Api::class)
     if (showAddMoneySheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
