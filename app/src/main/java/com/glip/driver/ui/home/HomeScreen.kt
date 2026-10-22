@@ -637,7 +637,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 4.dp),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(10.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -645,7 +645,7 @@ fun HomeScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(115.dp)
+                        .height(250.dp)
                         .background(Color(0xFFFAFAFA)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -810,18 +810,18 @@ fun HomeScreen(
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 24.dp),
-                                shape = RoundedCornerShape(20.dp),
+                                    .padding(horizontal = 20.dp),
+                                shape = RoundedCornerShape(16.dp),
                                 colors = CardDefaults.cardColors(containerColor = Color.White),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+                                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                             ) {
                                 Column(
-                                    modifier = Modifier.padding(24.dp),
+                                    modifier = Modifier.padding(16.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(56.dp)
+                                            .size(46.dp)
                                             .clip(CircleShape)
                                             .background(Color(0xFFFEE2E2)),
                                         contentAlignment = Alignment.Center
@@ -830,24 +830,24 @@ fun HomeScreen(
                                             imageVector = Icons.Default.LocationOff,
                                             contentDescription = "Offline",
                                             tint = Color(0xFFDC2626),
-                                            modifier = Modifier.size(30.dp)
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     }
-                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
                                     Text(
                                         text = "YOU ARE OFFLINE",
-                                        fontSize = 17.sp,
+                                        fontSize = 16.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = Color(0xFF0F172A)
                                     )
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "Please turn online to get orders and receive passenger ride requests along your route.",
-                                        fontSize = 13.sp,
+                                        text = "Please turn online to receive passenger ride requests along your route.",
+                                        fontSize = 12.sp,
                                         color = Color(0xFF64748B),
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                     )
-                                    Spacer(modifier = Modifier.height(18.dp))
+                                    Spacer(modifier = Modifier.height(12.dp))
                                     Button(
                                         onClick = {
                                             if (!isSyncingOnline) {
@@ -865,8 +865,8 @@ fun HomeScreen(
                                         enabled = !isSyncingOnline,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(46.dp),
-                                        shape = RoundedCornerShape(12.dp),
+                                            .height(42.dp),
+                                        shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                                     ) {
                                         if (isSyncingOnline) {
