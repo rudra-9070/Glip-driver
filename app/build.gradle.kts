@@ -11,8 +11,8 @@ android {
         applicationId = "com.glip.driver"
         minSdk = 24
         targetSdk = 35
-        versionCode = 45
-        versionName = "1.4.3"
+        versionCode = 46
+        versionName = "1.4.4"
         multiDexEnabled = true
 
         ndk {
@@ -34,7 +34,7 @@ android {
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
-            enableV4Signing = true
+            enableV4Signing = false
         }
     }
 
@@ -42,7 +42,7 @@ android {
         debug {
             signingConfig = signingConfigs.getByName("fixedDebug")
             applicationIdSuffix = ".debug"
-            isDebuggable = true
+            isDebuggable = false
             buildConfigField("boolean", "SHOW_DEMO_OTP", "true")
         }
         release {
