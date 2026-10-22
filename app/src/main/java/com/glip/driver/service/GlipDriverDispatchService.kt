@@ -189,13 +189,19 @@ class GlipDriverDispatchService : Service() {
                     }
 
                     // 2. Fetch pending ride requests with proximity & waterfall dispatch filters
+                    val activeRoute = repository.getRoute()
+                    val routeDestLat = if (activeRoute.isActive) activeRoute.destLat else 0.0
+                    val routeDestLng = if (activeRoute.isActive) activeRoute.destLng else 0.0
+
                     val requests = SupabaseClient.fetchPendingRideRequests(
                         driverUuid = profile?.id,
                         driverMobile = profile?.mobileNumber,
                         driverVehicleCategory = vehicle?.category,
                         driverCapacity = vehicle?.totalCapacity,
                         driverLat = lat,
-                        driverLng = lng
+                        driverLng = lng,
+                        routeDestLat = routeDestLat,
+                        routeDestLng = routeDestLng
                     )
 
                     repository.setIncomingRequests(requests)

@@ -510,7 +510,9 @@ object SupabaseClient {
         driverVehicleCategory: VehicleCategory? = null,
         driverCapacity: Int? = null,
         driverLat: Double = 0.0,
-        driverLng: Double = 0.0
+        driverLng: Double = 0.0,
+        routeDestLat: Double = 0.0,
+        routeDestLng: Double = 0.0
     ): List<PassengerRequest> = withContext(Dispatchers.IO) {
         val list = mutableListOf<PassengerRequest>()
         try {
@@ -584,6 +586,35 @@ object SupabaseClient {
                     } else if (driverLat == 0.0 || driverLng == 0.0) {
                         // Driver coordinates unknown/unset - do not deliver rides blindly without proximity
                         continue
+                    }
+
+                    // Strict Directional Alignment & Forward Progress (when driver has an active destination route):
+                    if (routeDestLat != 0.0 && routeDestLng != 0.0 && pLat != 0.0 && pLng != 0.0 && dLat != 0.0 && dLng != 0.0) {
+                        val passBearing = calculateBearing(pLat, pLng, dLat, dLng)
+                        val driverBearing = calculateBearing(driverLat, driverLng, routeDestLat, routeDestLng)
+                        val bearingDiff = angleDifference(passBearing, driverBearing)
+                        if (bearingDiff > 55.0) {
+                            continue // Passenger is heading in opposite/cross direction! Skip!
+                        }
+
+                        val dArrPick = FloatArray(1)
+                        Location.distanceBetween(driverLat, driverLng, pLat, pLng, dArrPick)
+                        val dArrDrop = FloatArray(1)
+                        Location.distanceBetween(driverLat, driverLng, dLat, dLng, dArrDrop)
+                        val dArrTrip = FloatArray(1)
+                        Location.distanceBetween(pLat, pLng, dLat, dLng, dArrTrip)
+
+                        if (dArrTrip[0] > 600f && (dArrDrop[0] + 200f < dArrPick[0])) {
+                            continue // Driver is already near or past the dropoff location
+                        }
+
+                        val dArrDestPick = FloatArray(1)
+                        Location.distanceBetween(routeDestLat, routeDestLng, pLat, pLng, dArrDestPick)
+                        val dArrDestDrop = FloatArray(1)
+                        Location.distanceBetween(routeDestLat, routeDestLng, dLat, dLng, dArrDestDrop)
+                        if (dArrTrip[0] > 600f && (dArrDestPick[0] < dArrDestDrop[0])) {
+                            continue // Driver's destination terminates before or at passenger pickup
+                        }
                     }
 
                     // Waterfall Cascading Dispatch:
@@ -665,6 +696,22 @@ object SupabaseClient {
             Log.w(TAG, "fetchPendingRideRequests error: ${e.message}")
         }
         list
+    }
+
+    private fun calculateBearing(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val phi1 = Math.toRadians(lat1)
+        val phi2 = Math.toRadians(lat2)
+        val deltaLambda = Math.toRadians(lon2 - lon1)
+
+        val y = Math.sin(deltaLambda) * Math.cos(phi2)
+        val x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(deltaLambda)
+        val theta = Math.atan2(y, x)
+        return (Math.toDegrees(theta) + 360.0) % 360.0
+    }
+
+    private fun angleDifference(bearing1: Double, bearing2: Double): Double {
+        val diff = Math.abs(bearing1 - bearing2) % 360.0
+        return if (diff > 180.0) 360.0 - diff else diff
     }
 
     /**

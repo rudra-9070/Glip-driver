@@ -334,13 +334,19 @@ fun HomeScreen(
         while (true) {
             try {
                 val loc = liveLocation
+                val activeRoute = repository.getRoute()
+                val routeDestLat = if (activeRoute.isActive) activeRoute.destLat else 0.0
+                val routeDestLng = if (activeRoute.isActive) activeRoute.destLng else 0.0
+
                 val realRequests = com.glip.driver.data.remote.SupabaseClient.fetchPendingRideRequests(
                     driverUuid = driverUuid,
                     driverMobile = driverMobile,
                     driverVehicleCategory = cat,
                     driverCapacity = cap,
                     driverLat = loc?.latitude ?: 0.0,
-                    driverLng = loc?.longitude ?: 0.0
+                    driverLng = loc?.longitude ?: 0.0,
+                    routeDestLat = routeDestLat,
+                    routeDestLng = routeDestLng
                 )
                 repository.setIncomingRequests(realRequests)
                 val topReq = realRequests.firstOrNull()
