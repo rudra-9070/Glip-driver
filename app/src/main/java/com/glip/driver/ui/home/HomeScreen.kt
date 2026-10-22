@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Edit
@@ -1214,9 +1215,9 @@ fun HomeScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = if (activeTrips.isNotEmpty()) 220.dp else 360.dp)
-                        .padding(horizontal = 14.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .heightIn(max = if (activeTrips.isNotEmpty()) 280.dp else 420.dp)
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(requests, key = { it.id }) { req ->
                         val isPersonal = req.passengerAlias.contains("Personal", ignoreCase = true) || req.requestedSeats >= 3
@@ -1234,152 +1235,338 @@ fun HomeScreen(
                         )
                         val pickupTitle = req.pickupName.split(",").firstOrNull()?.trim() ?: req.pickupName
                         val dropTitle = req.dropoffName.split(",").firstOrNull()?.trim() ?: req.dropoffName
+                        val cleanPassengerName = req.passengerAlias
+                            .replace(Regex("\\s*\\([^)]*\\)"), "")
+                            .trim()
+                            .ifBlank { "Rider" }
+                        val firstInitial = cleanPassengerName.firstOrNull()?.uppercaseChar()?.toString() ?: "R"
 
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                            border = BorderStroke(1.5.dp, if (activeTrips.isNotEmpty()) Color(0xFF10B981) else Color(0xFFF59E0B))
                         ) {
-                            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
-                                // Header: Fare + Pooling Tag + Cash
-                                Row(
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                // 1. Top Alert Header Banner
+                                Surface(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    color = if (activeTrips.isNotEmpty()) Color(0xFFECFDF5) else Color(0xFFFFFBEB)
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = "₹${req.illustrativeFare}",
-                                            fontSize = 24.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = Color(0xFF0F172A)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = if (activeTrips.isNotEmpty()) Color(0xFFDCFCE7) else if (isPersonal) Color(0xFFFEF3C7) else Color(0xFFF1F5F9),
-                                            border = BorderStroke(1.dp, if (activeTrips.isNotEmpty()) Color(0xFF86EFAC) else if (isPersonal) Color(0xFFFDE68A) else Color(0xFFE2E8F0))
-                                        ) {
-                                            Text(
-                                                text = if (activeTrips.isNotEmpty()) "⭐ POOL REQUEST" else if (isPersonal) "⭐ PERSONAL" else "${req.requestedSeats} SEAT",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (activeTrips.isNotEmpty()) Color(0xFF166534) else if (isPersonal) Color(0xFFB45309) else Color(0xFF475569),
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                            )
-                                        }
-                                    }
-
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFFF8FAFC),
-                                        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-                                    ) {
-                                        Text(
-                                            text = "Cash",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = Color(0xFF64748B),
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Pickup Row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "• ${if (distToPickup > 0) "${distToPickup} km" else "Near you"}",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0F172A),
-                                        modifier = Modifier.width(72.dp)
-                                    )
-                                    Text(
-                                        text = pickupTitle,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0F172A),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                // Dropoff Row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "▼ ${if (tripDist > 0) "${tripDist} km" else "Drop"}",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0F172A),
-                                        modifier = Modifier.width(72.dp)
-                                    )
-                                    Text(
-                                        text = dropTitle,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0F172A),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                // Decline (X) + Accept Button
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Surface(
-                                        onClick = {
-                                            coroutineScope.launch {
-                                                repository.declineRequest(req.id)
-                                            }
-                                        },
-                                        shape = CircleShape,
-                                        color = Color.White,
-                                        border = BorderStroke(1.5.dp, Color(0xFFCBD5E1)),
-                                        modifier = Modifier.size(42.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "Decline",
-                                                tint = Color(0xFF64748B),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-
-                                    Button(
-                                        onClick = {
-                                            coroutineScope.launch {
-                                                repository.acceptRequest(req.id)
-                                            }
-                                        },
+                                    Row(
                                         modifier = Modifier
-                                            .weight(1f)
-                                            .height(42.dp),
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF5B838))
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(
-                                            text = if (activeTrips.isNotEmpty()) "Accept (Pool Share)" else "Accept",
-                                            color = Color(0xFF0F172A),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 15.sp
-                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (activeTrips.isNotEmpty()) Color(0xFF10B981) else Color(0xFFF59E0B))
+                                            )
+                                            Text(
+                                                text = if (activeTrips.isNotEmpty()) "⭐ POOL SHARE REQUEST" else if (isPersonal) "⚡ DEDICATED PERSONAL" else "⚡ NEW RIDE REQUEST",
+                                                fontSize = 11.5.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = if (activeTrips.isNotEmpty()) Color(0xFF065F46) else Color(0xFF92400E)
+                                            )
+                                        }
+
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = Color.White,
+                                            border = BorderStroke(1.dp, if (activeTrips.isNotEmpty()) Color(0xFFA7F3D0) else Color(0xFFFDE68A))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Person,
+                                                    contentDescription = null,
+                                                    tint = Color(0xFF475569),
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Text(
+                                                    text = "${req.requestedSeats} Seat${if (req.requestedSeats > 1) "s" else ""}",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF334155)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                                ) {
+                                    // 2. Passenger & Fare Row
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Left: Passenger Avatar & Name
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(42.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFFEFF6FF))
+                                                    .border(1.dp, Color(0xFFBFDBFE), CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = firstInitial,
+                                                    fontSize = 18.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = Color(0xFF1D4ED8)
+                                                )
+                                            }
+
+                                            Column {
+                                                Text(
+                                                    text = cleanPassengerName,
+                                                    fontSize = 16.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF0F172A),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.CheckCircle,
+                                                        contentDescription = "Verified",
+                                                        tint = Color(0xFF10B981),
+                                                        modifier = Modifier.size(12.dp)
+                                                    )
+                                                    Text(
+                                                        text = "Verified Passenger",
+                                                        fontSize = 11.5.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = Color(0xFF64748B)
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        // Right: Fare Box
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                text = "₹${req.illustrativeFare}",
+                                                fontSize = 26.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color(0xFF0F172A)
+                                            )
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = Color(0xFFF1F5F9)
+                                            ) {
+                                                Text(
+                                                    text = "💵 CASH",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF475569),
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    // 3. Visual Route Timeline (Pickup -> Drop)
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
+                                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                                    ) {
+                                        // Pickup row
+                                        Row(
+                                            verticalAlignment = Alignment.Top,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(10.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(0xFF10B981))
+                                                )
+                                                Box(
+                                                    modifier = Modifier
+                                                        .width(2.dp)
+                                                        .height(20.dp)
+                                                        .background(Color(0xFFCBD5E1))
+                                                )
+                                            }
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        text = "PICKUP",
+                                                        fontSize = 10.5.sp,
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        color = Color(0xFF10B981)
+                                                    )
+                                                    Text(
+                                                        text = if (distToPickup > 0) "${distToPickup} km away" else "Near you",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFF64748B)
+                                                    )
+                                                }
+                                                Text(
+                                                    text = pickupTitle,
+                                                    fontSize = 13.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF1E293B),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+
+                                        // Dropoff row
+                                        Row(
+                                            verticalAlignment = Alignment.Top,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(10.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFFEF4444))
+                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        text = "DROPOFF",
+                                                        fontSize = 10.5.sp,
+                                                        fontWeight = FontWeight.ExtraBold,
+                                                        color = Color(0xFFEF4444)
+                                                    )
+                                                    Text(
+                                                        text = if (tripDist > 0) "${tripDist} km trip" else "Destination",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFF64748B)
+                                                    )
+                                                }
+                                                Text(
+                                                    text = dropTitle,
+                                                    fontSize = 13.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF1E293B),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    // 4. Action Buttons (Decline & Accept)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Decline Button
+                                        Button(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    repository.declineRequest(req.id)
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .weight(0.35f)
+                                                .height(48.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFFFEE2E2),
+                                                contentColor = Color(0xFFDC2626)
+                                            ),
+                                            border = BorderStroke(1.dp, Color(0xFFFCA5A5))
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Decline",
+                                                    tint = Color(0xFFDC2626),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Text(
+                                                    text = "Decline",
+                                                    fontSize = 13.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFFDC2626)
+                                                )
+                                            }
+                                        }
+
+                                        // Accept Button
+                                        Button(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    repository.acceptRequest(req.id)
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .weight(0.65f)
+                                                .height(48.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (activeTrips.isNotEmpty()) Color(0xFF10B981) else Color(0xFFF5B838),
+                                                contentColor = if (activeTrips.isNotEmpty()) Color.White else Color(0xFF0F172A)
+                                            ),
+                                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    tint = if (activeTrips.isNotEmpty()) Color.White else Color(0xFF0F172A),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Text(
+                                                    text = if (activeTrips.isNotEmpty()) "Accept (Pool Share)" else "Accept Ride (₹${req.illustrativeFare})",
+                                                    fontSize = 14.5.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = if (activeTrips.isNotEmpty()) Color.White else Color(0xFF0F172A)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
