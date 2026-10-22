@@ -567,7 +567,7 @@ object SupabaseClient {
                     val dLat = obj.optDouble("drop_lat", 0.0)
                     val dLng = obj.optDouble("drop_lng", 0.0)
 
-                    // Proximity & City Boundary Filter (Max 15 KM):
+                    // Proximity & City Boundary Filter (Max 10 KM):
                     // Prevents rides from another city or far location from reaching this driver!
                     var myDistanceMeters = 0f
                     if (driverLat != 0.0 && driverLng != 0.0 && pLat != 0.0 && pLng != 0.0) {
@@ -575,9 +575,15 @@ object SupabaseClient {
                         Location.distanceBetween(driverLat, driverLng, pLat, pLng, distArr)
                         myDistanceMeters = distArr[0]
 
-                        if (myDistanceMeters > 15_000f && !isDirectMatch) {
+                        // HARD IMMUTABLE PROXIMITY CHECK:
+                        // Never accept or deliver any ride further than 10 KM!
+                        // Even if isDirectMatch is true, distant drivers (>10 KM) in other cities are strictly skipped!
+                        if (myDistanceMeters > 10_000f) {
                             continue // In a different city or too far away! Skip.
                         }
+                    } else if (driverLat == 0.0 || driverLng == 0.0) {
+                        // Driver coordinates unknown/unset - do not deliver rides blindly without proximity
+                        continue
                     }
 
                     // Waterfall Cascading Dispatch:
@@ -593,7 +599,7 @@ object SupabaseClient {
                             val dArr = FloatArray(1)
                             Location.distanceBetween(drv.lat, drv.lng, pLat, pLng, dArr)
                             Pair(drv, dArr[0])
-                        }.filter { it.second <= 15_000f }
+                        }.filter { it.second <= 10_000f }
                          .sortedBy { it.second }
 
                         val myRank = matchingDrivers.indexOfFirst { (drv, _) ->
@@ -605,7 +611,7 @@ object SupabaseClient {
                                 when {
                                     myDistanceMeters <= 2_500f -> 1
                                     myDistanceMeters <= 5_000f -> 2
-                                    myDistanceMeters <= 9_000f -> 3
+                                    myDistanceMeters <= 8_000f -> 3
                                     else -> 4
                                 }
                             }
