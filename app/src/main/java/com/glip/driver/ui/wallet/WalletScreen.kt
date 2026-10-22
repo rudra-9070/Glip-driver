@@ -800,9 +800,6 @@ fun WalletScreen(
             }
         }
     }
-
-        Spacer(modifier = Modifier.height(28.dp))
-    }
 }
 
 @Composable
