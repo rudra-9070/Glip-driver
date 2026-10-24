@@ -201,7 +201,8 @@ class GlipDriverDispatchService : Service() {
                         driverLat = lat,
                         driverLng = lng,
                         routeDestLat = routeDestLat,
-                        routeDestLng = routeDestLng
+                        routeDestLng = routeDestLng,
+                        driverAvailableSeats = vehicle?.availableSeats ?: (vehicle?.totalCapacity ?: 4)
                     )
 
                     repository.setIncomingRequests(requests)

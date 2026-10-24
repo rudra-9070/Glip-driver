@@ -346,7 +346,8 @@ fun HomeScreen(
                     driverLat = loc?.latitude ?: 0.0,
                     driverLng = loc?.longitude ?: 0.0,
                     routeDestLat = routeDestLat,
-                    routeDestLng = routeDestLng
+                    routeDestLng = routeDestLng,
+                    driverAvailableSeats = vehicle?.availableSeats ?: (vehicle?.totalCapacity ?: 4)
                 )
                 repository.setIncomingRequests(realRequests)
                 val topReq = realRequests.firstOrNull()

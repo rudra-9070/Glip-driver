@@ -431,7 +431,9 @@ object SupabaseClient {
         val mobileNumber: String,
         val lat: Double,
         val lng: Double,
-        val vehicleType: String
+        val vehicleType: String,
+        val availableSeats: Int = 4,
+        val totalSeats: Int = 4
     )
 
     private var cachedOnlineDrivers: List<OnlineDriverInfo> = emptyList()
@@ -468,7 +470,7 @@ object SupabaseClient {
         }
         val list = mutableListOf<OnlineDriverInfo>()
         try {
-            val endpoint = "/drivers?is_online=eq.true&select=id,mobile_number,current_lat,current_lng,vehicle_type"
+            val endpoint = "/drivers?is_online=eq.true&select=id,mobile_number,current_lat,current_lng,vehicle_type,available_seats,total_seats"
             val conn = openConnection(endpoint, "GET")
             if (conn.responseCode in 200..299) {
                 val resp = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
@@ -477,6 +479,8 @@ object SupabaseClient {
                     val obj = arr.getJSONObject(i)
                     val lat = obj.optDouble("current_lat", 0.0)
                     val lng = obj.optDouble("current_lng", 0.0)
+                    val availSeats = obj.optInt("available_seats", 4)
+                    val totSeats = obj.optInt("total_seats", 4)
                     if (lat != 0.0 && lng != 0.0) {
                         list.add(
                             OnlineDriverInfo(
@@ -484,7 +488,9 @@ object SupabaseClient {
                                 mobileNumber = obj.optString("mobile_number", ""),
                                 lat = lat,
                                 lng = lng,
-                                vehicleType = obj.optString("vehicle_type", "")
+                                vehicleType = obj.optString("vehicle_type", ""),
+                                availableSeats = availSeats,
+                                totalSeats = totSeats
                             )
                         )
                     }
@@ -531,7 +537,8 @@ object SupabaseClient {
         driverLat: Double = 0.0,
         driverLng: Double = 0.0,
         routeDestLat: Double = 0.0,
-        routeDestLng: Double = 0.0
+        routeDestLng: Double = 0.0,
+        driverAvailableSeats: Int? = null
     ): List<PassengerRequest> = withContext(Dispatchers.IO) {
         val list = mutableListOf<PassengerRequest>()
         try {
@@ -567,6 +574,9 @@ object SupabaseClient {
                     }
 
                     val seats = obj.optInt("requested_seats", 1)
+                    if (driverAvailableSeats != null && driverAvailableSeats < seats) {
+                        continue // Driver does not have enough remaining seats for this request
+                    }
 
                     // Vehicle Category Filter:
                     // Strict separation: Auto gets Auto, E-Rickshaw gets E-Rickshaw, Cab gets Cab
@@ -669,20 +679,29 @@ object SupabaseClient {
                                     mobileNumber = driverMobile ?: "",
                                     lat = driverLat,
                                     lng = driverLng,
-                                    vehicleType = driverVehicleCategory?.name ?: "AUTO"
+                                    vehicleType = driverVehicleCategory?.name ?: "AUTO",
+                                    availableSeats = driverAvailableSeats ?: (driverCapacity ?: 4),
+                                    totalSeats = driverCapacity ?: 4
                                 )
                             )
                         }
 
-                        // Calculate distance of each candidate driver to passenger pickup
-                        val rankedCandidates = candidateDrivers.map { drv ->
-                            val dArr = FloatArray(1)
-                            val dLat = if (drv.lat != 0.0) drv.lat else driverLat
-                            val dLng = if (drv.lng != 0.0) drv.lng else driverLng
-                            Location.distanceBetween(dLat, dLng, pLat, pLng, dArr)
-                            Pair(drv, dArr[0])
-                        }.filter { it.second <= 10_000f }
-                         .sortedBy { it.second }
+                        // High-Occupancy Route-Packing Optimization:
+                        // 1st Priority: Driver whose vehicle is closest to being full (fewest available seats >= seats requested)
+                        // 2nd Priority: Proximity / distance to passenger pickup
+                        val rankedCandidates = candidateDrivers
+                            .filter { it.availableSeats >= seats }
+                            .map { drv ->
+                                val dArr = FloatArray(1)
+                                val dLat = if (drv.lat != 0.0) drv.lat else driverLat
+                                val dLng = if (drv.lng != 0.0) drv.lng else driverLng
+                                Location.distanceBetween(dLat, dLng, pLat, pLng, dArr)
+                                Pair(drv, dArr[0])
+                            }.filter { it.second <= 10_000f }
+                             .sortedWith(
+                                 compareBy<Pair<OnlineDriverInfo, Float>> { it.first.availableSeats }
+                                     .thenBy { it.second }
+                             )
 
                         // Find current driver's exact 1-based rank among all online drivers
                         val myIndex = rankedCandidates.indexOfFirst { (drv, _) ->
