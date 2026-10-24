@@ -947,19 +947,19 @@ fun HomeScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 280.dp)
+                        .heightIn(max = 320.dp)
                         .padding(horizontal = 14.dp, vertical = 4.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                     border = BorderStroke(1.5.dp, Color(0xFF10B981))
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(modifier = Modifier.padding(10.dp)) {
                         LazyColumn(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f, fill = false),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             itemsIndexed(sortedTrips, key = { _, trip -> trip.id }) { index, trip ->
                                 val cleanPassenger = trip.passengerAlias.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Rider" }
@@ -1073,7 +1073,7 @@ fun HomeScreen(
                                                     },
                                                     modifier = Modifier
                                                         .weight(1f)
-                                                        .height(36.dp),
+                                                        .height(38.dp),
                                                     shape = RoundedCornerShape(8.dp),
                                                     border = BorderStroke(1.dp, Color(0xFFEF4444)),
                                                     contentPadding = PaddingValues(horizontal = 4.dp)
@@ -1081,7 +1081,7 @@ fun HomeScreen(
                                                     Text(
                                                         text = "Cancel",
                                                         color = Color(0xFFDC2626),
-                                                        fontSize = 11.sp,
+                                                        fontSize = 11.5.sp,
                                                         fontWeight = FontWeight.SemiBold
                                                     )
                                                 }
@@ -1095,24 +1095,26 @@ fun HomeScreen(
                                                     },
                                                     modifier = Modifier
                                                         .weight(2.2f)
-                                                        .height(36.dp),
+                                                        .height(38.dp),
                                                     shape = RoundedCornerShape(8.dp),
                                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                                                    contentPadding = PaddingValues(horizontal = 4.dp)
+                                                    contentPadding = PaddingValues(horizontal = 6.dp)
                                                 ) {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         Icon(
-                                                            imageVector = Icons.Default.Check,
-                                                            contentDescription = null,
-                                                            tint = Color.White,
-                                                            modifier = Modifier.size(14.dp)
+                                                             imageVector = Icons.Default.Check,
+                                                             contentDescription = null,
+                                                             tint = Color.White,
+                                                             modifier = Modifier.size(15.dp)
                                                         )
                                                         Spacer(modifier = Modifier.width(4.dp))
                                                         Text(
-                                                            text = "ENTER OTP / PICK UP",
+                                                            text = "Enter OTP / Pick Up",
                                                             color = Color.White,
-                                                            fontSize = 11.sp,
-                                                            fontWeight = FontWeight.Bold
+                                                            fontSize = 11.5.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     }
                                                 }
@@ -1162,7 +1164,7 @@ fun HomeScreen(
                                                     },
                                                     modifier = Modifier
                                                         .weight(1f)
-                                                        .height(36.dp),
+                                                        .height(38.dp),
                                                     shape = RoundedCornerShape(8.dp),
                                                     border = BorderStroke(1.dp, Color(0xFFEF4444)),
                                                     contentPadding = PaddingValues(horizontal = 4.dp)
@@ -1170,7 +1172,7 @@ fun HomeScreen(
                                                     Text(
                                                         text = "Cancel",
                                                         color = Color(0xFFDC2626),
-                                                        fontSize = 11.sp,
+                                                        fontSize = 11.5.sp,
                                                         fontWeight = FontWeight.SemiBold
                                                     )
                                                 }
@@ -1184,24 +1186,26 @@ fun HomeScreen(
                                                     },
                                                     modifier = Modifier
                                                         .weight(2.2f)
-                                                        .height(36.dp),
+                                                        .height(38.dp),
                                                     shape = RoundedCornerShape(8.dp),
                                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
-                                                    contentPadding = PaddingValues(horizontal = 4.dp)
+                                                    contentPadding = PaddingValues(horizontal = 6.dp)
                                                 ) {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         Icon(
                                                             imageVector = Icons.Default.Check,
                                                             contentDescription = null,
                                                             tint = Color.White,
-                                                            modifier = Modifier.size(14.dp)
+                                                            modifier = Modifier.size(15.dp)
                                                         )
                                                         Spacer(modifier = Modifier.width(4.dp))
                                                         Text(
-                                                            text = "DROP PASSENGER",
+                                                            text = "Drop Passenger",
                                                             color = Color.White,
-                                                            fontSize = 11.sp,
-                                                            fontWeight = FontWeight.Bold
+                                                            fontSize = 11.5.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
                                                         )
                                                     }
                                                 }
@@ -1221,9 +1225,9 @@ fun HomeScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = if (activeTrips.isNotEmpty()) 280.dp else 420.dp)
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .heightIn(max = if (activeTrips.isNotEmpty()) 300.dp else 440.dp)
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(requests, key = { it.id }) { req ->
                         val isPersonal = req.passengerAlias.contains("Personal", ignoreCase = true) || req.requestedSeats >= 3
@@ -1315,7 +1319,7 @@ fun HomeScreen(
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                                        .padding(horizontal = 12.dp, vertical = 10.dp)
                                 ) {
                                     // 2. Passenger & Fare Row
                                     Row(
@@ -1377,7 +1381,7 @@ fun HomeScreen(
                                         Column(horizontalAlignment = Alignment.End) {
                                             Text(
                                                 text = "₹${req.illustrativeFare}",
-                                                fontSize = 26.sp,
+                                                fontSize = 22.sp,
                                                 fontWeight = FontWeight.Black,
                                                 color = Color(0xFF0F172A)
                                             )
@@ -1396,14 +1400,14 @@ fun HomeScreen(
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
 
                                     // 3. Visual Route Timeline (Pickup -> Drop)
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
-                                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                                            .background(Color(0xFFF8FAFC), RoundedCornerShape(10.dp))
+                                            .padding(horizontal = 10.dp, vertical = 8.dp)
                                     ) {
                                         // Pickup row
                                         Row(
@@ -1494,7 +1498,7 @@ fun HomeScreen(
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.height(14.dp))
+                                    Spacer(modifier = Modifier.height(10.dp))
 
                                     // 4. Action Buttons (Decline & Accept)
                                     Row(

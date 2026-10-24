@@ -507,6 +507,22 @@ object SupabaseClient {
      * - 3rd Nearest (Rank 3): Gets request after 30s
      * - Rank 4+: Gets request after 45s
      */
+    fun isSameVehicleCategory(cat1: String, cat2: String): Boolean {
+        val c1 = cat1.trim().uppercase().replace("-", "_").replace(" ", "_")
+        val c2 = cat2.trim().uppercase().replace("-", "_").replace(" ", "_")
+        if (c1 == c2) return true
+        val isAuto1 = c1 in listOf("AUTO", "AUTO_RICKSHAW")
+        val isAuto2 = c2 in listOf("AUTO", "AUTO_RICKSHAW")
+        if (isAuto1 && isAuto2) return true
+        val isCab1 = c1 in listOf("CAR", "CAB", "SEDAN", "MINI_CAR")
+        val isCab2 = c2 in listOf("CAR", "CAB", "SEDAN", "MINI_CAR")
+        if (isCab1 && isCab2) return true
+        val isRickshaw1 = c1 in listOf("E_RICKSHAW", "ERICKSHAW")
+        val isRickshaw2 = c2 in listOf("E_RICKSHAW", "ERICKSHAW")
+        if (isRickshaw1 && isRickshaw2) return true
+        return false
+    }
+
     suspend fun fetchPendingRideRequests(
         driverUuid: String?,
         driverMobile: String? = null,
@@ -539,9 +555,11 @@ object SupabaseClient {
                         continue // Discard stale/expired requests from earlier
                     }
                     val assignedDriver = obj.optString("driver_id", "").trim()
+                    val cleanAssignedMobile = assignedDriver.replace(Regex("[^0-9]"), "").takeLast(10)
+                    val cleanMyMobile = driverMobile?.replace(Regex("[^0-9]"), "")?.takeLast(10) ?: ""
                     
                     val isDirectMatch = (!driverUuid.isNullOrBlank() && assignedDriver.equals(driverUuid, ignoreCase = true)) ||
-                            (!driverMobile.isNullOrBlank() && assignedDriver.equals(driverMobile, ignoreCase = true))
+                            (cleanMyMobile.isNotEmpty() && cleanAssignedMobile.isNotEmpty() && cleanAssignedMobile == cleanMyMobile)
 
                     // If assigned to another specific driver, skip!
                     if (!assignedDriver.isBlank() && !isDirectMatch) {
@@ -625,31 +643,55 @@ object SupabaseClient {
                     if (!isDirectMatch && pLat != 0.0 && pLng != 0.0) {
                         val ageSeconds = getSecondsSince(createdAt)
                         val allOnline = getNearbyOnlineDrivers()
-                        val matchingDrivers = allOnline.filter { drv ->
-                            if (driverVehicleCategory != null && drv.vehicleType.isNotBlank()) {
-                                drv.vehicleType.equals(driverVehicleCategory.name, ignoreCase = true)
+
+                        // Build candidate online driver pool matching this vehicle category
+                        val candidateDrivers = mutableListOf<OnlineDriverInfo>()
+                        for (drv in allOnline) {
+                            val matchesCategory = if (driverVehicleCategory != null && drv.vehicleType.isNotBlank()) {
+                                isSameVehicleCategory(drv.vehicleType, driverVehicleCategory.name)
                             } else true
-                        }.map { drv ->
+                            if (matchesCategory) {
+                                candidateDrivers.add(drv)
+                            }
+                        }
+
+                        // Always ensure THIS querying driver is included in the candidate comparison
+                        val alreadyIncluded = candidateDrivers.any { drv ->
+                            val drvCleanMob = drv.mobileNumber.replace(Regex("[^0-9]"), "").takeLast(10)
+                            (!driverUuid.isNullOrBlank() && drv.id.equals(driverUuid, ignoreCase = true)) ||
+                            (cleanMyMobile.isNotEmpty() && drvCleanMob == cleanMyMobile)
+                        }
+
+                        if (!alreadyIncluded) {
+                            candidateDrivers.add(
+                                OnlineDriverInfo(
+                                    id = driverUuid ?: "",
+                                    mobileNumber = driverMobile ?: "",
+                                    lat = driverLat,
+                                    lng = driverLng,
+                                    vehicleType = driverVehicleCategory?.name ?: "AUTO"
+                                )
+                            )
+                        }
+
+                        // Calculate distance of each candidate driver to passenger pickup
+                        val rankedCandidates = candidateDrivers.map { drv ->
                             val dArr = FloatArray(1)
-                            Location.distanceBetween(drv.lat, drv.lng, pLat, pLng, dArr)
+                            val dLat = if (drv.lat != 0.0) drv.lat else driverLat
+                            val dLng = if (drv.lng != 0.0) drv.lng else driverLng
+                            Location.distanceBetween(dLat, dLng, pLat, pLng, dArr)
                             Pair(drv, dArr[0])
                         }.filter { it.second <= 10_000f }
                          .sortedBy { it.second }
 
-                        val myRank = matchingDrivers.indexOfFirst { (drv, _) ->
+                        // Find current driver's exact 1-based rank among all online drivers
+                        val myIndex = rankedCandidates.indexOfFirst { (drv, _) ->
+                            val drvCleanMob = drv.mobileNumber.replace(Regex("[^0-9]"), "").takeLast(10)
                             (!driverUuid.isNullOrBlank() && drv.id.equals(driverUuid, ignoreCase = true)) ||
-                                    (!driverMobile.isNullOrBlank() && drv.mobileNumber.equals(driverMobile, ignoreCase = true))
-                        }.let { idx ->
-                            if (idx >= 0) idx + 1
-                            else {
-                                when {
-                                    myDistanceMeters <= 2_500f -> 1
-                                    myDistanceMeters <= 5_000f -> 2
-                                    myDistanceMeters <= 8_000f -> 3
-                                    else -> 4
-                                }
-                            }
+                            (cleanMyMobile.isNotEmpty() && drvCleanMob == cleanMyMobile)
                         }
+
+                        val myRank = if (myIndex >= 0) myIndex + 1 else 1
 
                         val isEligibleNow = when (myRank) {
                             1 -> true
@@ -659,7 +701,7 @@ object SupabaseClient {
                         }
 
                         if (!isEligibleNow) {
-                            continue // Wait for closer driver to decide first
+                            continue // Wait for closer driver's exclusive decision window to expire first
                         }
                     }
 
@@ -800,16 +842,15 @@ object SupabaseClient {
      */
     suspend fun declineRideRequest(requestId: String, isDirectAssignment: Boolean = false): Boolean = withContext(Dispatchers.IO) {
         markLocalDeclined(requestId)
-        if (!isDirectAssignment) {
-            return@withContext true
-        }
         try {
+            // When driver declines, clear driver_id in Supabase so the request cascades to the next nearest driver
             val endpoint = "/ride_requests?id=eq.$requestId"
             val conn = openConnection(endpoint, "PATCH")
             conn.doOutput = true
 
             val json = JSONObject().apply {
-                put("status", "DECLINED")
+                put("driver_id", JSONObject.NULL)
+                put("status", "PENDING")
             }
 
             OutputStreamWriter(conn.outputStream).use { writer ->
