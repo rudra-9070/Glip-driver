@@ -51,19 +51,11 @@ class DriverLocationManager(private val context: Context) : LocationListener {
         }
 
         fun openLocationSettings(context: Context) {
-            try {
-                val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                // Fallback to general settings if specific action fails
-                try {
-                    val fallback = Intent(Settings.ACTION_SETTINGS).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(fallback)
-                } catch (ignored: Exception) {}
+            val activity = context as? android.app.Activity
+            if (activity != null) {
+                GpsPromptHelper.requestEnableGps(activity)
+            } else {
+                GpsPromptHelper.openSettingsFallback(context)
             }
         }
 

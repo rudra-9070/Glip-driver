@@ -1,6 +1,7 @@
 package com.glip.driver.ui.home
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.location.Location
 import android.net.Uri
@@ -8,6 +9,7 @@ import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.glip.driver.location.GpsPromptHelper
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -189,6 +191,7 @@ fun HomeScreen(
     }
 
     val context = LocalContext.current
+    val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val locationManager = remember { DriverLocationManager(context.applicationContext) }
@@ -209,6 +212,16 @@ fun HomeScreen(
     }
     var showOverlayPermissionPrompt by remember { mutableStateOf(false) }
 
+    val gpsResolutionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            locationManager.refreshGpsStatus()
+            locationManager.startTracking()
+            showGpsTurnOnDialog = false
+        }
+    }
+
     val locationPermissionsList = remember {
         buildList {
             add(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -227,7 +240,11 @@ fun HomeScreen(
         if (granted) {
             locationManager.startTracking()
             if (!locationManager.refreshGpsStatus()) {
-                showGpsTurnOnDialog = true
+                if (activity != null) {
+                    GpsPromptHelper.requestEnableGps(activity, gpsResolutionLauncher)
+                } else {
+                    showGpsTurnOnDialog = true
+                }
             }
         }
     }
@@ -245,7 +262,11 @@ fun HomeScreen(
                 if (hasPerm) {
                     locationManager.startTracking()
                     if (!gpsOn) {
-                        showGpsTurnOnDialog = true
+                        if (activity != null) {
+                            GpsPromptHelper.requestEnableGps(activity, gpsResolutionLauncher)
+                        } else {
+                            showGpsTurnOnDialog = true
+                        }
                     }
                 } else {
                     // Show Google Play compliant Prominent Disclosure before requesting permissions
@@ -662,7 +683,11 @@ fun HomeScreen(
                             }.toTypedArray()
                             permissionLauncher.launch(perms)
                         } else {
-                            DriverLocationManager.openLocationSettings(context)
+                            if (activity != null) {
+                                GpsPromptHelper.requestEnableGps(activity, gpsResolutionLauncher)
+                            } else {
+                                DriverLocationManager.openLocationSettings(context)
+                            }
                         }
                     },
                     shape = RoundedCornerShape(10.dp),
@@ -1793,7 +1818,11 @@ fun HomeScreen(
                     TextButton(
                         onClick = {
                             showGpsTurnOnDialog = false
-                            DriverLocationManager.openLocationSettings(context)
+                            if (activity != null) {
+                                GpsPromptHelper.requestEnableGps(activity, gpsResolutionLauncher)
+                            } else {
+                                DriverLocationManager.openLocationSettings(context)
+                            }
                         }
                     ) {
                         Text(
