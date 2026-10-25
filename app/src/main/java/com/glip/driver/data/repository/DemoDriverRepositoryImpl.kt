@@ -135,21 +135,39 @@ class DemoDriverRepositoryImpl(
     override suspend fun updateRoute(route: DriverRoute) {
         _routeFlow.value = route
         recomputePassengerRequests()
+        try {
+            val prof = _profileFlow.value
+            val mob = prof?.mobileNumber
+            val driverId = prof?.id
+            com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
+                driverIdentifier = driverId,
+                mobileNumber = mob,
+                destinationName = route.destinationName,
+                destLat = route.destLat,
+                destLng = route.destLng,
+                isActive = route.isActive
+            )
+        } catch (_: Exception) {}
     }
 
     override suspend fun setAvailable(available: Boolean) {
-        val prof = _profileFlow.value
-        val mob = prof?.mobileNumber ?: ""
-        val driverId = prof?.id
-        if (mob.isNotBlank() || !driverId.isNullOrBlank()) {
-            com.glip.driver.data.remote.SupabaseClient.updateOnlineStatus(
-                mobileNumber = mob,
-                driverId = driverId,
-                isOnline = available
-            )
-        }
+        // 1. Instantly update local state for zero-lag UI response
         sessionManager.setDriverAvailable(available)
         _isAvailableFlow.value = available
+
+        // 2. Concurrently sync to Supabase without blocking the UI
+        try {
+            val prof = _profileFlow.value
+            val mob = prof?.mobileNumber ?: ""
+            val driverId = prof?.id
+            if (mob.isNotBlank() || !driverId.isNullOrBlank()) {
+                com.glip.driver.data.remote.SupabaseClient.updateOnlineStatus(
+                    mobileNumber = mob,
+                    driverId = driverId,
+                    isOnline = available
+                )
+            }
+        } catch (_: Exception) {}
     }
 
     fun setIncomingRequests(list: List<PassengerRequest>) {

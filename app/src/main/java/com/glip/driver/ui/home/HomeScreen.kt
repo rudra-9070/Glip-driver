@@ -303,10 +303,11 @@ fun HomeScreen(
     var lastSeenRequestId by remember { mutableStateOf<String?>(null) }
     var isSyncingOnline by remember { mutableStateOf(false) }
 
-    // Clear incoming requests when driver goes OFFLINE
+    // Clear incoming requests and dismiss floating widgets when driver goes OFFLINE
     LaunchedEffect(isAvailable) {
         if (!isAvailable) {
             repository.setIncomingRequests(emptyList())
+            com.glip.driver.service.FloatingRideOverlayManager.dismissAll()
         }
     }
 
@@ -811,19 +812,10 @@ fun HomeScreen(
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Button(
                                         onClick = {
-                                            if (!isSyncingOnline) {
-                                                isSyncingOnline = true
-                                                coroutineScope.launch {
-                                                    try {
-                                                        repository.setAvailable(true)
-                                                        kotlinx.coroutines.delay(400)
-                                                    } finally {
-                                                        isSyncingOnline = false
-                                                    }
-                                                }
+                                            coroutineScope.launch {
+                                                repository.setAvailable(true)
                                             }
                                         },
-                                        enabled = !isSyncingOnline,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(42.dp),
@@ -1574,16 +1566,8 @@ fun HomeScreen(
 
                     Surface(
                         onClick = {
-                            if (!isSyncingOnline) {
-                                isSyncingOnline = true
-                                coroutineScope.launch {
-                                    try {
-                                        repository.setAvailable(!isOnline)
-                                        kotlinx.coroutines.delay(400)
-                                    } finally {
-                                        isSyncingOnline = false
-                                    }
-                                }
+                            coroutineScope.launch {
+                                repository.setAvailable(!isOnline)
                             }
                         },
                         shape = RoundedCornerShape(20.dp),
