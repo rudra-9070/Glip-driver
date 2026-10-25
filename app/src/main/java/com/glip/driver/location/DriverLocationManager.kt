@@ -66,6 +66,34 @@ class DriverLocationManager(private val context: Context) : LocationListener {
                 } catch (ignored: Exception) {}
             }
         }
+
+        fun isBatteryOptimizationIgnored(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val pm = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                return pm?.isIgnoringBatteryOptimizations(context.packageName) ?: true
+            }
+            return true
+        }
+
+        @SuppressLint("BatteryLife")
+        fun requestIgnoreBatteryOptimizations(context: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = android.net.Uri.parse("package:${context.packageName}")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                } catch (_: Exception) {
+                    try {
+                        val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(fallback)
+                    } catch (_: Exception) {}
+                }
+            }
+        }
     }
 
     fun refreshGpsStatus(): Boolean {
@@ -148,39 +176,27 @@ class DriverLocationManager(private val context: Context) : LocationListener {
             } catch (ignored: Exception) {}
             isListening = false
 
-            // Register continuous live updates with minDistance = 0f (updates even while stationary)
+            // Production Battery Optimization:
+            // High-power GPS is requested with 3000ms and 5m distance filter to avoid 100% continuous RF drain.
+            // Redundant simultaneous Network + Passive polling is eliminated.
             if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 try {
                     lm.requestLocationUpdates(
                         LocationManager.GPS_PROVIDER,
-                        1000L,
-                        0f,
+                        3000L,
+                        5f,
                         this,
                         Looper.getMainLooper()
                     )
                     isListening = true
                 } catch (ignored: Exception) {}
-            }
-
-            if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+            } else if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                // Low-power Network Provider fallback only when GPS is off
                 try {
                     lm.requestLocationUpdates(
                         LocationManager.NETWORK_PROVIDER,
-                        1000L,
-                        0f,
-                        this,
-                        Looper.getMainLooper()
-                    )
-                    isListening = true
-                } catch (ignored: Exception) {}
-            }
-
-            if (lm.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
-                try {
-                    lm.requestLocationUpdates(
-                        LocationManager.PASSIVE_PROVIDER,
-                        1000L,
-                        0f,
+                        4000L,
+                        10f,
                         this,
                         Looper.getMainLooper()
                     )
