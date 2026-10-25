@@ -188,9 +188,9 @@ fun WalletScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // My glip ID Section
+                    // My Haze ID Section
                     Text(
-                        text = "My glip ID",
+                        text = "My Haze ID",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF64748B)
@@ -210,7 +210,7 @@ fun WalletScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "glip@564879",
+                                text = "haze@564879",
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0F172A),
@@ -220,15 +220,15 @@ fun WalletScreen(
                             IconButton(
                                 onClick = {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("Glip ID", "glip@564879")
+                                    val clip = ClipData.newPlainText("Haze ID", "haze@564879")
                                     clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, "Glip ID copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Haze ID copied to clipboard!", Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.ContentCopy,
-                                    contentDescription = "Copy Glip ID",
+                                    contentDescription = "Copy Haze ID",
                                     tint = Color(0xFF2563EB),
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -238,7 +238,7 @@ fun WalletScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Accepted on all Glip Mobility Network payments",
+                        text = "Accepted on all Haze Mobility Network payments",
                         fontSize = 12.sp,
                         color = Color(0xFF94A3B8)
                     )
@@ -401,7 +401,7 @@ fun WalletScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "View MY QR & My glip ID",
+                            text = "View MY QR & My Haze ID",
                             fontSize = 12.sp,
                             color = Color(0xFF64748B)
                         )

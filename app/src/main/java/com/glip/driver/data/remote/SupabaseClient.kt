@@ -158,7 +158,7 @@ object SupabaseClient {
                 val arr = JSONArray(response)
                 if (arr.length() > 0) {
                     val obj = arr.getJSONObject(0)
-                    val name = obj.optString("full_name", "Glip Driver")
+                    val name = obj.optString("full_name", "Haze Driver")
                     val id = obj.optString("id", "drv_${cleanMobile.takeLast(4)}")
                     val license = obj.optString("license_number", "").takeIf { it.isNotBlank() }
                     val plate = obj.optString("vehicle_plate", obj.optString("vehicle_number", "")).takeIf { it.isNotBlank() }

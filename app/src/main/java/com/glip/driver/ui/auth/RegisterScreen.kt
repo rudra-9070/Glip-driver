@@ -85,7 +85,7 @@ fun RegisterScreen(
         // Top App Logo
         Image(
             painter = painterResource(id = R.drawable.ic_glip_logo),
-            contentDescription = "Glip Logo",
+            contentDescription = "Haze Logo",
             modifier = Modifier
                 .size(76.dp)
                 .clip(RoundedCornerShape(20.dp))

@@ -359,7 +359,7 @@ fun HomeScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.DirectionsCar,
-                                    contentDescription = "Glip Logo",
+                                    contentDescription = "Haze Logo",
                                     tint = Color.White,
                                     modifier = Modifier.size(24.dp)
                                 )
@@ -367,7 +367,7 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
                                 Text(
-                                    text = "Glip Driver",
+                                    text = "Haze Driver",
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = GlipNavyPrimary
@@ -1800,7 +1800,7 @@ fun HomeScreen(
                 },
                 text = {
                     Text(
-                        text = "Aapka device GPS location OFF hai. Glip Driver app me live location dekhne aur raste ke passengers match karne ke liye device GPS ON karein.",
+                        text = "Aapka device GPS location OFF hai. Haze Driver app me live location dekhne aur raste ke passengers match karne ke liye device GPS ON karein.",
                         color = Color(0xFF475569),
                         fontSize = 14.sp
                     )
@@ -1901,7 +1901,7 @@ fun HomeScreen(
                 text = {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "Glip Driver collects location data to enable the following features even when the app is closed or running in the background:",
+                            text = "Haze Driver collects location data to enable the following features even when the app is closed or running in the background:",
                             color = Color(0xFF334155),
                             fontSize = 14.sp,
                             lineHeight = 20.sp

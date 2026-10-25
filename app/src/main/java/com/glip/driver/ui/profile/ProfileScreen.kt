@@ -273,7 +273,7 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "Glip Driver v1.0.1 • Built with Jetpack Compose & M3",
+            text = "Haze Driver v1.0.1 • Built with Jetpack Compose & M3",
             style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF94A3B8), fontSize = 11.sp),
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )

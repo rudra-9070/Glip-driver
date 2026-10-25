@@ -74,7 +74,7 @@ fun RouteCorridorMapPreview(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "LIVE ROUTE CORRIDOR (DEMO)",
+                        text = "LIVE ROUTE CORRIDOR",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = GlipAccentTeal,
                             fontWeight = FontWeight.Bold,

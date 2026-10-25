@@ -135,7 +135,7 @@ fun CrashScreenContent(
     val horizontalScroll = rememberScrollState()
 
     val fullReportText = buildString {
-        append("=== GLIP DRIVER ERROR REPORT ===\n")
+        append("=== HAZE DRIVER ERROR REPORT ===\n")
         append("Time: ").append(timestamp).append("\n")
         append("Error: ").append(errorType).append("\n")
         append("Message: ").append(errorMessage).append("\n\n")
@@ -183,7 +183,7 @@ fun CrashScreenContent(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Glip Driver caught an exception instead of closing.",
+                        text = "Haze Driver caught an exception instead of closing.",
                         color = Color.White.copy(alpha = 0.9f),
                         fontSize = 12.sp
                     )

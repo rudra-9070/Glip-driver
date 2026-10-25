@@ -70,7 +70,7 @@ fun WelcomeScreen(
             // App Identity Brand Graphic
             Image(
                 painter = painterResource(id = R.drawable.ic_glip_logo),
-                contentDescription = "Glip Logo",
+                contentDescription = "Haze Logo",
                 modifier = Modifier
                     .size(96.dp)
                     .clip(RoundedCornerShape(22.dp))
@@ -79,7 +79,7 @@ fun WelcomeScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "Glip Driver",
+                text = "Haze Driver",
                 style = MaterialTheme.typography.headlineLarge.copy(
                     color = GlipNavyPrimary,
                     fontWeight = FontWeight.ExtraBold

@@ -81,7 +81,7 @@ fun LoginScreen(
         // Top App Logo
         Image(
             painter = painterResource(id = R.drawable.ic_glip_logo),
-            contentDescription = "Glip Logo",
+            contentDescription = "Haze Logo",
             modifier = Modifier
                 .size(80.dp)
                 .clip(RoundedCornerShape(20.dp))
@@ -90,7 +90,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "Glip Driver",
+            text = "Haze Driver",
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontWeight = FontWeight.ExtraBold,
                 color = GlipNavyPrimary
@@ -280,7 +280,7 @@ fun LoginScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "New to Glip? ",
+                    text = "New to Haze? ",
                     fontSize = 14.sp,
                     color = Color(0xFF64748B)
                 )

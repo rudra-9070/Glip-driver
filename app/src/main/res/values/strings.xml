@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Glip Driver</string>
+    <string name="app_name">Haze Driver</string>
     <string name="app_tagline">Route-Based Seat Sharing for Drivers</string>
-    <string name="demo_banner_title">Driver Mode</string>
-    <string name="demo_banner_desc">Route-based seat sharing and pooling.</string>
+    <string name="demo_banner_title">Driver Partner Mode</string>
+    <string name="demo_banner_desc">Route-based seat sharing and ride pooling.</string>
 </resources>

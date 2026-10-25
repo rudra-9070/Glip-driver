@@ -444,7 +444,7 @@ class GlipDriverDispatchService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_STATUS_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("🟢 Glip Driver - Online")
+            .setContentTitle("🟢 Haze Driver - Online")
             .setContentText("Searching for nearby passenger ride requests...")
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
@@ -462,7 +462,7 @@ class GlipDriverDispatchService : Service() {
                 "Driver Online Status",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shows active online status for Glip Driver background service"
+                description = "Shows active online status for Haze Driver background service"
                 setShowBadge(false)
             }
             nm.createNotificationChannel(statusChannel)
