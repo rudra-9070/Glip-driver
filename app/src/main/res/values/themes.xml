@@ -4,4 +4,15 @@
         <item name="android:navigationBarColor">@color/glip_navy_primary</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
+
+    <!-- Translucent System Dialog Theme for Seamless Incoming Ride Popups Outside App -->
+    <style name="Theme.GlipDriver.Translucent" parent="Theme.GlipDriver">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.45</item>
+    </style>
 </resources>

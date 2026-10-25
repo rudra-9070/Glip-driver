@@ -55,6 +55,16 @@
             android:theme="@style/Theme.GlipDriver"
             android:process=":crash_reporter" />
 
+        <!-- Translucent Incoming Ride Dialog for 100% Reliable Background Alerts Outside App -->
+        <activity
+            android:name=".ui.incoming.IncomingRideActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GlipDriver.Translucent"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true" />
+
         <!-- Foreground Dispatch Service for Real-Time Background Ride Alerts & GPS Tracking -->
         <service
             android:name=".service.GlipDriverDispatchService"

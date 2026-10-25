@@ -22,8 +22,9 @@ import com.glip.driver.domain.model.PassengerRequest
 
 /**
  * Floating Rapido/Uber-style Overlay System for Haze Driver.
- * 1. Persistent Draggable Round "H" Bubble showing active ONLINE status outside the app.
+ * 1. Persistent Draggable Floating Pill ("HAZE Online") showing active ONLINE status outside the app.
  * 2. Instant Expandable Ride Request Card directly over any app with Accept/Decline actions.
+ * Strictly NO car symbols or emojis used.
  */
 object FloatingRideOverlayManager {
 
@@ -34,14 +35,20 @@ object FloatingRideOverlayManager {
     fun isShowing(): Boolean = cardOverlayView != null || bubbleView != null
     fun isRideCardShowing(): Boolean = cardOverlayView != null
 
+    fun canDrawOverlays(context: Context): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context)
+    }
+
     /**
-     * Shows a round, draggable Floating Bubble ("H" brand icon with green ONLINE dot)
+     * Shows a draggable Floating Pill widget displaying:
+     *   HAZE
+     *   🟢 Online
      * when driver is ONLINE and outside the app (e.g. browsing WhatsApp, Home screen).
      * Strictly NO car symbols used. Clicking opens Haze Driver app.
      */
     @SuppressLint("ClickableViewAccessibility")
     fun showOnlineBubble(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+        if (!canDrawOverlays(context)) {
             return
         }
         // Do not show bubble if app is in foreground or ride card is already showing
@@ -63,12 +70,13 @@ object FloatingRideOverlayManager {
             val density = context.resources.displayMetrics.density
             fun dp(value: Int): Int = (value * density).toInt()
 
-            val bubbleSize = dp(58)
+            val pillWidth = dp(94)
+            val pillHeight = dp(46)
             val screenWidth = context.resources.displayMetrics.widthPixels
 
             val params = WindowManager.LayoutParams(
-                bubbleSize,
-                bubbleSize,
+                pillWidth,
+                pillHeight,
                 layoutType,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -76,49 +84,66 @@ object FloatingRideOverlayManager {
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.TOP or Gravity.START
-                x = screenWidth - bubbleSize - dp(12) // Initial right edge
+                x = screenWidth - pillWidth - dp(12) // Initial right edge
                 y = dp(160) // Ergonomic thumb zone
             }
 
-            // Circular Frame Container
-            val rootFrame = FrameLayout(context).apply {
-                layoutParams = FrameLayout.LayoutParams(bubbleSize, bubbleSize)
+            // Rounded Pill Container
+            val rootPill = LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(8), dp(4), dp(8), dp(4))
+                layoutParams = FrameLayout.LayoutParams(pillWidth, pillHeight)
                 background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = dp(23).toFloat()
                     setColor(Color.parseColor("#0F172A")) // Deep Slate Navy
                     setStroke(dp(2), Color.parseColor("#10B981")) // Emerald Green Border
                 }
                 elevation = dp(10).toFloat()
             }
 
-            // Center Text "H" (Haze Brand Identity)
+            // Line 1: HAZE (Brand name in bold uppercase)
             val brandText = TextView(context).apply {
-                text = "H"
-                textSize = 24f
+                text = "HAZE"
+                textSize = 12f
                 setTextColor(Color.WHITE)
                 typeface = Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
-                layoutParams = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT
-                )
+                letterSpacing = 0.12f
             }
-            rootFrame.addView(brandText)
+            rootPill.addView(brandText)
 
-            // Glowing Online Dot at Top-Right (🟢 Indicator)
-            val onlineDot = View(context).apply {
-                val dotSize = dp(12)
-                layoutParams = FrameLayout.LayoutParams(dotSize, dotSize).apply {
-                    gravity = Gravity.TOP or Gravity.END
-                    setMargins(0, dp(4), dp(4), 0)
+            // Line 2: 🟢 Online (Status row with glowing green dot and text)
+            val statusRow = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                setPadding(0, dp(1), 0, 0)
+            }
+
+            val greenDot = View(context).apply {
+                val dotSize = dp(6)
+                layoutParams = LinearLayout.LayoutParams(dotSize, dotSize).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    setMargins(0, 0, dp(4), 0)
                 }
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(Color.parseColor("#22C55E")) // Bright Green
-                    setStroke(dp(1), Color.WHITE)
+                    setColor(Color.parseColor("#10B981")) // Vibrant Emerald Green
                 }
             }
-            rootFrame.addView(onlineDot)
+
+            val statusText = TextView(context).apply {
+                text = "Online"
+                textSize = 10f
+                setTextColor(Color.parseColor("#34D399")) // Bright Mint Green
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            statusRow.addView(greenDot)
+            statusRow.addView(statusText)
+            rootPill.addView(statusRow)
 
             // Draggable Touch & Click Listener
             var initialX = 0
@@ -126,7 +151,7 @@ object FloatingRideOverlayManager {
             var initialTouchX = 0f
             var initialTouchY = 0f
 
-            rootFrame.setOnTouchListener { _, event ->
+            rootPill.setOnTouchListener { _, event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         initialX = params.x
@@ -139,7 +164,7 @@ object FloatingRideOverlayManager {
                         params.x = initialX + (event.rawX - initialTouchX).toInt()
                         params.y = initialY + (event.rawY - initialTouchY).toInt()
                         try {
-                            wm.updateViewLayout(rootFrame, params)
+                            wm.updateViewLayout(rootPill, params)
                         } catch (_: Exception) {}
                         true
                     }
@@ -163,8 +188,8 @@ object FloatingRideOverlayManager {
                 }
             }
 
-            wm.addView(rootFrame, params)
-            bubbleView = rootFrame
+            wm.addView(rootPill, params)
+            bubbleView = rootPill
         } catch (_: Exception) {
             bubbleView = null
         }
@@ -180,17 +205,18 @@ object FloatingRideOverlayManager {
     }
 
     /**
-     * Pops up the full-screen interactive Ride Request Card directly over any app
+     * Pops up the interactive Ride Request Card directly over any app
      * when a new passenger ride request arrives.
+     * Returns true if overlay was successfully shown via WindowManager.
      */
     fun showOverlay(
         context: Context,
         request: PassengerRequest,
         onAccept: () -> Unit,
         onDecline: () -> Unit
-    ) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
-            return
+    ): Boolean {
+        if (!canDrawOverlays(context)) {
+            return false
         }
 
         // Hide bubble while full ride card is showing
@@ -198,7 +224,7 @@ object FloatingRideOverlayManager {
         dismissOverlay()
 
         try {
-            val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
+            val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return false
             windowManager = wm
 
             val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -347,8 +373,10 @@ object FloatingRideOverlayManager {
 
             wm.addView(root, params)
             cardOverlayView = root
+            return true
         } catch (_: Exception) {
             cardOverlayView = null
+            return false
         }
     }
 

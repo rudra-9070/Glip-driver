@@ -282,9 +282,6 @@ fun HomeScreen(
     LaunchedEffect(isAvailable, hasPermission) {
         if (isAvailable && hasPermission) {
             com.glip.driver.service.GlipDriverDispatchService.start(context)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
-                showOverlayPermissionPrompt = true
-            }
         } else if (!isAvailable) {
             com.glip.driver.service.GlipDriverDispatchService.stop(context)
         }
@@ -1578,10 +1575,6 @@ fun HomeScreen(
                     Surface(
                         onClick = {
                             if (!isSyncingOnline) {
-                                // Prompt overlay permission if turning ONLINE without it
-                                if (!isOnline && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
-                                    showOverlayPermissionPrompt = true
-                                }
                                 isSyncingOnline = true
                                 coroutineScope.launch {
                                     try {
@@ -1840,14 +1833,14 @@ fun HomeScreen(
                 },
                 title = {
                     Text(
-                        text = "Enable Floating Haze Icon & Ride Popups",
+                        text = "Enable Floating HAZE Online Widget",
                         fontWeight = FontWeight.Bold,
                         color = GlipNavyPrimary
                     )
                 },
                 text = {
                     Text(
-                        text = "Rapido / Uber ki tarah WhatsApp ya doosre apps chalate waqt bhi screen par gol Haze Online icon aur ride popup pane ke liye 'Display over other apps' allow karein.",
+                        text = "Rapido / Uber ki tarah doosre apps chalate waqt bhi screen par floating HAZE Online widget aur instant ride card pane ke liye 'Display over other apps' allow karein.",
                         color = Color(0xFF475569),
                         fontSize = 14.sp
                     )

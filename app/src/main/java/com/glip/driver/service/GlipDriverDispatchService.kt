@@ -24,6 +24,7 @@ import com.glip.driver.R
 import com.glip.driver.data.remote.SupabaseClient
 import com.glip.driver.domain.model.PassengerRequest
 import com.glip.driver.location.DriverLocationManager
+import com.glip.driver.ui.incoming.IncomingRideActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -353,9 +354,29 @@ class GlipDriverDispatchService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val fullScreenIntent = if (!FloatingRideOverlayManager.canDrawOverlays(this)) {
+            val alertIntent = Intent(this, IncomingRideActivity::class.java).apply {
+                putExtra(IncomingRideActivity.EXTRA_REQUEST_ID, request.id)
+                putExtra(IncomingRideActivity.EXTRA_PASSENGER_NAME, request.passengerAlias)
+                putExtra(IncomingRideActivity.EXTRA_FARE, request.illustrativeFare)
+                putExtra(IncomingRideActivity.EXTRA_PICKUP, request.pickupName)
+                putExtra(IncomingRideActivity.EXTRA_DROPOFF, request.dropoffName)
+                putExtra(IncomingRideActivity.EXTRA_SEATS, request.requestedSeats)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            PendingIntent.getActivity(
+                this,
+                request.id.hashCode() + 3,
+                alertIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        } else {
+            openAppPending
+        }
+
         val notification = NotificationCompat.Builder(this, CHANNEL_ALERT_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("🚕 New Ride: ₹${request.illustrativeFare} - ${request.passengerAlias}")
+            .setContentTitle("⚡ New Ride: ₹${request.illustrativeFare} - ${request.passengerAlias}")
             .setContentText("📍 ${request.pickupName} ➔ 🏁 ${request.dropoffName}")
             .setSubText("${request.requestedSeats} Seat${if (request.requestedSeats > 1) "s" else ""}")
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -363,7 +384,7 @@ class GlipDriverDispatchService : Service() {
             .setAutoCancel(true)
             .setOngoing(true)
             .setContentIntent(openAppPending)
-            .setFullScreenIntent(openAppPending, true)
+            .setFullScreenIntent(fullScreenIntent, true)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Decline", declinePending)
             .addAction(android.R.drawable.ic_input_add, "ACCEPT (₹${request.illustrativeFare})", acceptPending)
             .build()
@@ -374,7 +395,7 @@ class GlipDriverDispatchService : Service() {
 
     private fun showFloatingOverlay(request: PassengerRequest) {
         try {
-            FloatingRideOverlayManager.showOverlay(
+            val shown = FloatingRideOverlayManager.showOverlay(
                 context = this,
                 request = request,
                 onAccept = {
@@ -384,7 +405,15 @@ class GlipDriverDispatchService : Service() {
                     handleDeclineRide(request.id)
                 }
             )
-        } catch (_: Exception) {}
+            if (!shown) {
+                // Dual Engine Fallback: Instant Translucent Activity popup without needing overlay permission
+                IncomingRideActivity.start(this, request)
+            }
+        } catch (_: Exception) {
+            try {
+                IncomingRideActivity.start(this, request)
+            } catch (_: Exception) {}
+        }
     }
 
     private fun handleAcceptRide(requestId: String) {
