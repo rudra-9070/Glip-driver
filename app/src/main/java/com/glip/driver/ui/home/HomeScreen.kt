@@ -199,6 +199,7 @@ fun HomeScreen(
         mutableStateOf(DriverLocationManager.hasLocationPermission(context))
     }
     var showGpsTurnOnDialog by remember { mutableStateOf(false) }
+    var showProminentDisclosureDialog by remember { mutableStateOf(false) }
     var hasOverlayPermission by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -207,6 +208,16 @@ fun HomeScreen(
         )
     }
     var showOverlayPermissionPrompt by remember { mutableStateOf(false) }
+
+    val locationPermissionsList = remember {
+        buildList {
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+            add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }.toTypedArray()
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -237,14 +248,8 @@ fun HomeScreen(
                         showGpsTurnOnDialog = true
                     }
                 } else {
-                    val perms = buildList {
-                        add(Manifest.permission.ACCESS_FINE_LOCATION)
-                        add(Manifest.permission.ACCESS_COARSE_LOCATION)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            add(Manifest.permission.POST_NOTIFICATIONS)
-                        }
-                    }.toTypedArray()
-                    permissionLauncher.launch(perms)
+                    // Show Google Play compliant Prominent Disclosure before requesting permissions
+                    showProminentDisclosureDialog = true
                 }
             } else if (event == Lifecycle.Event.ON_PAUSE) {
                 locationManager.stopTracking()
@@ -285,24 +290,6 @@ fun HomeScreen(
         }
     }
 
-    // Sync live driver GPS location, bearing, and vehicle type to Supabase in real-time
-    LaunchedEffect(liveLocation, isAvailable, vehicle) {
-        val loc = liveLocation
-        val prof = profile
-        val veh = vehicle
-        if (loc != null && loc.latitude != 0.0 && prof != null && (prof.mobileNumber.isNotBlank() || prof.id.isNotBlank())) {
-            com.glip.driver.data.remote.SupabaseClient.updateLiveLocation(
-                mobileNumber = prof.mobileNumber,
-                driverId = prof.id,
-                lat = loc.latitude,
-                lng = loc.longitude,
-                bearing = loc.bearing,
-                isOnline = isAvailable,
-                vehicleCategory = veh?.category
-            )
-        }
-    }
-
     // Auto-sync real Supabase UUID from remote drivers table so driverId is guaranteed to match
     LaunchedEffect(profile?.mobileNumber) {
         val mob = profile?.mobileNumber
@@ -319,69 +306,25 @@ fun HomeScreen(
     var lastSeenRequestId by remember { mutableStateOf<String?>(null) }
     var isSyncingOnline by remember { mutableStateOf(false) }
 
-    // Real-time polling for incoming passenger ride requests whenever driver is ONLINE
-    // Strictly filtered to match this driver's registered vehicle category and nearby waterfall dispatch
-    LaunchedEffect(isAvailable, profile, vehicle, liveLocation) {
+    // Clear incoming requests when driver goes OFFLINE
+    LaunchedEffect(isAvailable) {
         if (!isAvailable) {
             repository.setIncomingRequests(emptyList())
-            return@LaunchedEffect
-        }
-        val prof = profile
-        val driverUuid = prof?.id
-        val driverMobile = prof?.mobileNumber
-        val cat = vehicle?.category
-        val cap = vehicle?.totalCapacity
-        while (true) {
-            try {
-                val loc = liveLocation
-                val activeRoute = repository.getRoute()
-                val routeDestLat = if (activeRoute.isActive) activeRoute.destLat else 0.0
-                val routeDestLng = if (activeRoute.isActive) activeRoute.destLng else 0.0
-
-                val realRequests = com.glip.driver.data.remote.SupabaseClient.fetchPendingRideRequests(
-                    driverUuid = driverUuid,
-                    driverMobile = driverMobile,
-                    driverVehicleCategory = cat,
-                    driverCapacity = cap,
-                    driverLat = loc?.latitude ?: 0.0,
-                    driverLng = loc?.longitude ?: 0.0,
-                    routeDestLat = routeDestLat,
-                    routeDestLng = routeDestLng,
-                    driverAvailableSeats = vehicle?.availableSeats ?: (vehicle?.totalCapacity ?: 4)
-                )
-                repository.setIncomingRequests(realRequests)
-                val topReq = realRequests.firstOrNull()
-                if (topReq != null && topReq.id != lastSeenRequestId) {
-                    lastSeenRequestId = topReq.id
-                    playRideRequestAlert(
-                        context = context,
-                        passengerName = topReq.passengerAlias,
-                        fare = topReq.illustrativeFare,
-                        pickupName = topReq.pickupName
-                    )
-                }
-            } catch (e: Exception) {}
-            kotlinx.coroutines.delay(1800L) // Poll every 1.8 seconds for rapid real-time dispatch
         }
     }
 
-    // Real-time listener: If passenger cancels active trip from Consumer App, auto-cancel on driver phone
-    LaunchedEffect(activeTrips) {
-        val reqIds = activeTrips.map { it.requestId }.filter { it.isNotBlank() }
-        if (reqIds.isEmpty()) return@LaunchedEffect
-        while (true) {
-            kotlinx.coroutines.delay(2500L)
-            try {
-                val cancelledIds = com.glip.driver.data.remote.SupabaseClient.checkCancelledRequests(reqIds)
-                if (cancelledIds.isNotEmpty()) {
-                    cancelledIds.forEach { cId ->
-                        val tripToCancel = activeTrips.find { it.requestId == cId }
-                        if (tripToCancel != null) {
-                            repository.updateTripStatus(tripToCancel.id, com.glip.driver.domain.model.DemoTripStatus.CANCELLED)
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
+    // Reactive Audio Alert: Play audible sound whenever a fresh incoming request arrives
+    // (GlipDriverDispatchService handles background/foreground network dispatching as single source of truth)
+    LaunchedEffect(requests) {
+        val topReq = requests.firstOrNull()
+        if (topReq != null && topReq.id != lastSeenRequestId) {
+            lastSeenRequestId = topReq.id
+            playRideRequestAlert(
+                context = context,
+                passengerName = topReq.passengerAlias,
+                fare = topReq.illustrativeFare,
+                pickupName = topReq.pickupName
+            )
         }
     }
 
@@ -1930,6 +1873,74 @@ fun HomeScreen(
                 dismissButton = {
                     TextButton(onClick = { showOverlayPermissionPrompt = false }) {
                         Text("Later", color = Color(0xFF94A3B8))
+                    }
+                }
+            )
+        }
+
+        // Google Play Store Required Prominent Disclosure Dialog for Background Location
+        if (showProminentDisclosureDialog && !hasPermission) {
+            AlertDialog(
+                onDismissRequest = { showProminentDisclosureDialog = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Place,
+                        contentDescription = "Location Access",
+                        tint = GlipNavyPrimary,
+                        modifier = Modifier.size(36.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Location Permission Required",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = GlipNavyPrimary
+                    )
+                },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "Glip Driver collects location data to enable the following features even when the app is closed or running in the background:",
+                            color = Color(0xFF334155),
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "• Finding and dispatching nearby passenger ride requests along your route.\n• Live trip tracking and distance calculation.\n• Turn-by-turn navigation for passenger pick-ups and drop-offs.",
+                            color = Color(0xFF475569),
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "Your location is collected exclusively while you are Online to fulfill rides and is never shared with third parties for advertising.",
+                            color = Color(0xFF64748B),
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showProminentDisclosureDialog = false
+                            permissionLauncher.launch(locationPermissionsList)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = GlipNavyPrimary),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "Agree & Continue",
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showProminentDisclosureDialog = false }) {
+                        Text("Not Now", color = Color(0xFF94A3B8))
                     }
                 }
             )

@@ -23,9 +23,22 @@ object OsrmRoutingHelper {
         "https://router.project-osrm.org/route/v1/driving/"
     )
 
+    private val routeCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, RoadRouteResult>>()
+    private const val CACHE_TTL_MS = 900_000L // 15 minutes cache
+    private const val MAX_CACHE_ENTRIES = 500
+
+    private fun makeCacheKey(oLat: Double, oLng: Double, dLat: Double, dLng: Double): String {
+        // Quantize coordinates to 3 decimal places (~110m) to reuse routes despite GPS jitter
+        val rOLat = (oLat * 1000).toInt()
+        val rOLng = (oLng * 1000).toInt()
+        val rDLat = (dLat * 1000).toInt()
+        val rDLng = (dLng * 1000).toInt()
+        return "${rOLat}_${rOLng}_${rDLat}_${rDLng}"
+    }
+
     /**
      * Fetches exact turn-by-turn road geometry following actual streets and highways.
-     * Powered by OpenStreetMap road network. 100% Free, zero API keys required.
+     * Powered by OpenStreetMap road network with in-memory caching and offline fallback.
      */
     suspend fun fetchRoadRoute(
         originLat: Double,
@@ -33,6 +46,14 @@ object OsrmRoutingHelper {
         destLat: Double,
         destLng: Double
     ): RoadRouteResult? = withContext(Dispatchers.IO) {
+        if (originLat == 0.0 || originLng == 0.0 || destLat == 0.0 || destLng == 0.0) return@withContext null
+
+        val cacheKey = makeCacheKey(originLat, originLng, destLat, destLng)
+        val cached = routeCache[cacheKey]
+        if (cached != null && (System.currentTimeMillis() - cached.first) < CACHE_TTL_MS) {
+            return@withContext cached.second
+        }
+
         // Query endpoints with fast fallback
         for (baseEndpoint in ENDPOINTS) {
             try {
@@ -40,9 +61,9 @@ object OsrmRoutingHelper {
                 val url = URL(urlString)
                 val connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
-                    connectTimeout = 7000
-                    readTimeout = 7000
-                    setRequestProperty("User-Agent", "GlipDriver/1.0 (Android; OpenStreetMap)")
+                    connectTimeout = 6000
+                    readTimeout = 6000
+                    setRequestProperty("User-Agent", "GlipDriver/2.0 (Android; OpenStreetMap)")
                     setRequestProperty("Accept", "application/json")
                 }
 
@@ -74,12 +95,19 @@ object OsrmRoutingHelper {
                                 val durationMinutes = (durationSeconds / 60.0).toInt()
                                 val summary = "$distanceKm • ~$durationMinutes mins via Real Roads"
 
-                                return@withContext RoadRouteResult(
+                                val result = RoadRouteResult(
                                     points = geoPoints,
                                     distanceMeters = distanceMeters,
                                     durationSeconds = durationSeconds,
                                     summaryText = summary
                                 )
+
+                                // Bound cache size
+                                if (routeCache.size > MAX_CACHE_ENTRIES) {
+                                    routeCache.clear()
+                                }
+                                routeCache[cacheKey] = Pair(System.currentTimeMillis(), result)
+                                return@withContext result
                             }
                         }
                     }
@@ -88,6 +116,20 @@ object OsrmRoutingHelper {
                 // Try next endpoint in list
             }
         }
-        null
+
+        // Offline / Network Failure Fallback: calculate straight-line road approximation
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(originLat, originLng, destLat, destLng, results)
+        val approxMeters = results[0].toDouble() * 1.3
+        val distanceKm = String.format("%.1f km", approxMeters / 1000.0)
+        val durationMinutes = ((approxMeters / 1000.0) / 25.0 * 60.0).toInt().coerceAtLeast(1)
+
+        val fallbackResult = RoadRouteResult(
+            points = listOf(GeoPoint(originLat, originLng), GeoPoint(destLat, destLng)),
+            distanceMeters = approxMeters,
+            durationSeconds = durationMinutes * 60.0,
+            summaryText = "$distanceKm • ~$durationMinutes mins"
+        )
+        fallbackResult
     }
 }

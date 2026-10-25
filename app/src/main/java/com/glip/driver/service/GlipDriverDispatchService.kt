@@ -93,6 +93,11 @@ class GlipDriverDispatchService : Service() {
     private var vibrator: Vibrator? = null
     private var lastAlertedRequestId: String? = null
 
+    // GPS & Network Throttling metrics for 50,000 DAU scalability
+    private var lastSentLat = 0.0
+    private var lastSentLng = 0.0
+    private var lastSentTime = 0L
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -132,7 +137,25 @@ class GlipDriverDispatchService : Service() {
                 isRunning = false
                 stopAlert()
                 stopForeground(true)
-                stopSelf()
+                // Instantly notify Supabase that driver is offline
+                serviceScope.launch {
+                    try {
+                        val profile = GlipDriverApplication.repository.profileFlow.firstOrNull()
+                        val vehicle = GlipDriverApplication.repository.vehicleFlow.firstOrNull()
+                        if (profile != null) {
+                            SupabaseClient.updateLiveLocation(
+                                mobileNumber = profile.mobileNumber,
+                                driverId = profile.id,
+                                lat = lastSentLat,
+                                lng = lastSentLng,
+                                bearing = 0f,
+                                isOnline = false,
+                                vehicleCategory = vehicle?.category
+                            )
+                        }
+                    } catch (_: Exception) {}
+                    stopSelf()
+                }
             }
             ACTION_ACCEPT_RIDE -> {
                 val reqId = intent.getStringExtra(EXTRA_REQUEST_ID)
@@ -155,8 +178,10 @@ class GlipDriverDispatchService : Service() {
         dispatchJob = serviceScope.launch {
             val repository = GlipDriverApplication.repository
             val locManager = locationManager ?: DriverLocationManager(applicationContext)
+            var currentBackoffMs = 1800L
 
             while (isActive && isRunning) {
+                var hasActiveContext = false
                 try {
                     val profile = repository.profileFlow.firstOrNull()
                     val vehicle = repository.vehicleFlow.firstOrNull()
@@ -166,6 +191,19 @@ class GlipDriverDispatchService : Service() {
                         isRunning = false
                         stopAlert()
                         stopForeground(true)
+                        try {
+                            if (profile != null) {
+                                SupabaseClient.updateLiveLocation(
+                                    mobileNumber = profile.mobileNumber,
+                                    driverId = profile.id,
+                                    lat = lastSentLat,
+                                    lng = lastSentLng,
+                                    bearing = 0f,
+                                    isOnline = false,
+                                    vehicleCategory = vehicle?.category
+                                )
+                            }
+                        } catch (_: Exception) {}
                         stopSelf()
                         break
                     }
@@ -174,18 +212,32 @@ class GlipDriverDispatchService : Service() {
                     val lat = gps?.latitude ?: 0.0
                     val lng = gps?.longitude ?: 0.0
                     val bearing = gps?.bearing ?: 0f
+                    val now = System.currentTimeMillis()
 
-                    // 1. Sync live GPS coordinates and online status to Supabase
+                    // 1. Scalable GPS Location Throttling (Don't spam network when driver is stationary)
                     if (profile != null && lat != 0.0 && lng != 0.0) {
-                        SupabaseClient.updateLiveLocation(
-                            mobileNumber = profile.mobileNumber,
-                            driverId = profile.id,
-                            lat = lat,
-                            lng = lng,
-                            bearing = bearing,
-                            isOnline = true,
-                            vehicleCategory = vehicle?.category
-                        )
+                        val distanceMoved = FloatArray(1)
+                        if (lastSentLat != 0.0 && lastSentLng != 0.0) {
+                            android.location.Location.distanceBetween(lastSentLat, lastSentLng, lat, lng, distanceMoved)
+                        } else {
+                            distanceMoved[0] = 999f
+                        }
+
+                        // Send GPS update only if moved > 5 meters OR at least 5 seconds have elapsed
+                        if (distanceMoved[0] >= 5.0f || (now - lastSentTime) >= 5000L) {
+                            SupabaseClient.updateLiveLocation(
+                                mobileNumber = profile.mobileNumber,
+                                driverId = profile.id,
+                                lat = lat,
+                                lng = lng,
+                                bearing = bearing,
+                                isOnline = true,
+                                vehicleCategory = vehicle?.category
+                            )
+                            lastSentLat = lat
+                            lastSentLng = lng
+                            lastSentTime = now
+                        }
                     }
 
                     // 2. Fetch pending ride requests with proximity & waterfall dispatch filters
@@ -207,7 +259,25 @@ class GlipDriverDispatchService : Service() {
 
                     repository.setIncomingRequests(requests)
 
-                    // 3. If there is a fresh incoming request, alert the driver!
+                    // 3. Centralized check: If passenger cancelled an active trip, auto-update status
+                    val currentTrips = repository.tripsFlow.firstOrNull() ?: emptyList()
+                    val activeTrips = currentTrips.filter { it.status == com.glip.driver.domain.model.DemoTripStatus.ACCEPTED }
+                    val activeReqIds = activeTrips.map { it.requestId }.filter { it.isNotBlank() }
+                    if (activeReqIds.isNotEmpty()) {
+                        try {
+                            val cancelledIds = SupabaseClient.checkCancelledRequests(activeReqIds)
+                            if (cancelledIds.isNotEmpty()) {
+                                cancelledIds.forEach { cId ->
+                                    val tripToCancel = activeTrips.find { it.requestId == cId }
+                                    if (tripToCancel != null) {
+                                        repository.updateTripStatus(tripToCancel.id, com.glip.driver.domain.model.DemoTripStatus.CANCELLED)
+                                    }
+                                }
+                            }
+                        } catch (_: Exception) {}
+                    }
+
+                    // 4. Alert Driver if there is a pending request
                     if (requests.isNotEmpty()) {
                         val topReq = requests.first()
                         if (topReq.id != lastAlertedRequestId) {
@@ -223,9 +293,16 @@ class GlipDriverDispatchService : Service() {
                             lastAlertedRequestId = null
                         }
                     }
-                } catch (_: Exception) {}
 
-                delay(1800L) // Real-time rapid dispatch check every 1.8 seconds
+                    hasActiveContext = requests.isNotEmpty() || activeTrips.isNotEmpty()
+                    // Fast 1.8s polling during active trip or incoming request; 3.5s adaptive polling when idle
+                    currentBackoffMs = if (hasActiveContext) 1800L else 3500L
+                } catch (_: Exception) {
+                    // Exponential backoff on network failure (1.8s -> 3.5s -> 7s -> max 10s)
+                    currentBackoffMs = (currentBackoffMs * 1.5).toLong().coerceAtMost(10000L)
+                }
+
+                delay(currentBackoffMs)
             }
         }
     }
