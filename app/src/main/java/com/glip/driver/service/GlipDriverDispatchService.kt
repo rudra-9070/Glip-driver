@@ -136,6 +136,7 @@ class GlipDriverDispatchService : Service() {
             ACTION_STOP -> {
                 isRunning = false
                 stopAlert()
+                FloatingRideOverlayManager.dismissAll()
                 stopForeground(true)
                 // Instantly notify Supabase that driver is offline
                 serviceScope.launch {
@@ -292,6 +293,10 @@ class GlipDriverDispatchService : Service() {
                             stopAlert()
                             lastAlertedRequestId = null
                         }
+                        // Ensure round "H" Online Bubble is showing when idle outside app
+                        if (!MainActivity.isAppInForeground && isRunning) {
+                            FloatingRideOverlayManager.showOnlineBubble(applicationContext)
+                        }
                     }
 
                     hasActiveContext = requests.isNotEmpty() || activeTrips.isNotEmpty()
@@ -428,6 +433,9 @@ class GlipDriverDispatchService : Service() {
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
             nm?.cancel(RIDE_ALERT_NOTIFICATION_ID)
             FloatingRideOverlayManager.dismissOverlay()
+            if (!MainActivity.isAppInForeground && isRunning) {
+                FloatingRideOverlayManager.showOnlineBubble(applicationContext)
+            }
         } catch (_: Exception) {}
     }
 
@@ -504,6 +512,7 @@ class GlipDriverDispatchService : Service() {
     override fun onDestroy() {
         isRunning = false
         stopAlert()
+        FloatingRideOverlayManager.dismissAll()
         locationManager?.stopTracking()
         dispatchJob?.cancel()
         serviceScope.cancel()

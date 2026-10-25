@@ -1,30 +1,188 @@
 package com.glip.driver.service
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.provider.Settings
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.glip.driver.MainActivity
 import com.glip.driver.domain.model.PassengerRequest
 
 /**
- * Floating Rapido/Uber-style Overlay Card that pops up directly over other apps
- * when a new passenger ride request arrives and the driver is outside the app.
+ * Floating Rapido/Uber-style Overlay System for Haze Driver.
+ * 1. Persistent Draggable Round "H" Bubble showing active ONLINE status outside the app.
+ * 2. Instant Expandable Ride Request Card directly over any app with Accept/Decline actions.
  */
 object FloatingRideOverlayManager {
 
-    private var overlayView: View? = null
+    private var cardOverlayView: View? = null
+    private var bubbleView: View? = null
     private var windowManager: WindowManager? = null
 
-    fun isShowing(): Boolean = overlayView != null
+    fun isShowing(): Boolean = cardOverlayView != null || bubbleView != null
+    fun isRideCardShowing(): Boolean = cardOverlayView != null
 
+    /**
+     * Shows a round, draggable Floating Bubble ("H" brand icon with green ONLINE dot)
+     * when driver is ONLINE and outside the app (e.g. browsing WhatsApp, Home screen).
+     * Strictly NO car symbols used. Clicking opens Haze Driver app.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    fun showOnlineBubble(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+            return
+        }
+        // Do not show bubble if app is in foreground or ride card is already showing
+        if (MainActivity.isAppInForeground || cardOverlayView != null || bubbleView != null) {
+            return
+        }
+
+        try {
+            val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
+            windowManager = wm
+
+            val layoutType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            }
+
+            val density = context.resources.displayMetrics.density
+            fun dp(value: Int): Int = (value * density).toInt()
+
+            val bubbleSize = dp(58)
+            val screenWidth = context.resources.displayMetrics.widthPixels
+
+            val params = WindowManager.LayoutParams(
+                bubbleSize,
+                bubbleSize,
+                layoutType,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+                x = screenWidth - bubbleSize - dp(12) // Initial right edge
+                y = dp(160) // Ergonomic thumb zone
+            }
+
+            // Circular Frame Container
+            val rootFrame = FrameLayout(context).apply {
+                layoutParams = FrameLayout.LayoutParams(bubbleSize, bubbleSize)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.parseColor("#0F172A")) // Deep Slate Navy
+                    setStroke(dp(2), Color.parseColor("#10B981")) // Emerald Green Border
+                }
+                elevation = dp(10).toFloat()
+            }
+
+            // Center Text "H" (Haze Brand Identity)
+            val brandText = TextView(context).apply {
+                text = "H"
+                textSize = 24f
+                setTextColor(Color.WHITE)
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
+            rootFrame.addView(brandText)
+
+            // Glowing Online Dot at Top-Right (🟢 Indicator)
+            val onlineDot = View(context).apply {
+                val dotSize = dp(12)
+                layoutParams = FrameLayout.LayoutParams(dotSize, dotSize).apply {
+                    gravity = Gravity.TOP or Gravity.END
+                    setMargins(0, dp(4), dp(4), 0)
+                }
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.parseColor("#22C55E")) // Bright Green
+                    setStroke(dp(1), Color.WHITE)
+                }
+            }
+            rootFrame.addView(onlineDot)
+
+            // Draggable Touch & Click Listener
+            var initialX = 0
+            var initialY = 0
+            var initialTouchX = 0f
+            var initialTouchY = 0f
+
+            rootFrame.setOnTouchListener { _, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        initialX = params.x
+                        initialY = params.y
+                        initialTouchX = event.rawX
+                        initialTouchY = event.rawY
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        params.x = initialX + (event.rawX - initialTouchX).toInt()
+                        params.y = initialY + (event.rawY - initialTouchY).toInt()
+                        try {
+                            wm.updateViewLayout(rootFrame, params)
+                        } catch (_: Exception) {}
+                        true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        val diffX = Math.abs(event.rawX - initialTouchX)
+                        val diffY = Math.abs(event.rawY - initialTouchY)
+                        if (diffX < dp(8) && diffY < dp(8)) {
+                            // Click detected -> Instantly bring Haze Driver to foreground
+                            try {
+                                val intent = Intent(context, MainActivity::class.java).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) {}
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
+
+            wm.addView(rootFrame, params)
+            bubbleView = rootFrame
+        } catch (_: Exception) {
+            bubbleView = null
+        }
+    }
+
+    fun dismissBubble() {
+        try {
+            bubbleView?.let { view ->
+                windowManager?.removeViewImmediate(view)
+            }
+        } catch (_: Exception) {}
+        bubbleView = null
+    }
+
+    /**
+     * Pops up the full-screen interactive Ride Request Card directly over any app
+     * when a new passenger ride request arrives.
+     */
     fun showOverlay(
         context: Context,
         request: PassengerRequest,
@@ -35,6 +193,8 @@ object FloatingRideOverlayManager {
             return
         }
 
+        // Hide bubble while full ride card is showing
+        dismissBubble()
         dismissOverlay()
 
         try {
@@ -57,8 +217,7 @@ object FloatingRideOverlayManager {
                 layoutType,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+                        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -74,32 +233,32 @@ object FloatingRideOverlayManager {
             // Card Container
             val card = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(16), dp(14), dp(16), dp(14))
+                setPadding(dp(18), dp(16), dp(18), dp(16))
                 background = GradientDrawable().apply {
                     setColor(Color.WHITE)
-                    cornerRadius = dp(18).toFloat()
+                    cornerRadius = dp(20).toFloat()
                     setStroke(dp(1), Color.parseColor("#E2E8F0"))
                 }
-                elevation = dp(10).toFloat()
+                elevation = dp(14).toFloat()
             }
 
-            // Header: "🚕 NEW RIDE REQUEST" + Fare "₹{fare}"
+            // Header: "⚡ NEW RIDE REQUEST" + Fare "₹{fare}" (No car symbol)
             val header = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
             }
             val titleTv = TextView(context).apply {
-                text = "🚕 NEW RIDE REQUEST"
+                text = "⚡ NEW RIDE REQUEST"
                 textSize = 13f
                 setTextColor(Color.parseColor("#D97706")) // Amber-700
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                typeface = Typeface.DEFAULT_BOLD
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
             val fareTv = TextView(context).apply {
                 text = "₹${request.illustrativeFare}"
-                textSize = 20f
+                textSize = 22f
                 setTextColor(Color.parseColor("#0F172A"))
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                typeface = Typeface.DEFAULT_BOLD
             }
             header.addView(titleTv)
             header.addView(fareTv)
@@ -110,30 +269,30 @@ object FloatingRideOverlayManager {
                 text = "${request.passengerAlias}  •  ${request.requestedSeats} Seat${if (request.requestedSeats > 1) "s" else ""}"
                 textSize = 14f
                 setTextColor(Color.parseColor("#334155"))
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                setPadding(0, dp(6), 0, dp(4))
+                typeface = Typeface.DEFAULT_BOLD
+                setPadding(0, dp(6), 0, dp(6))
             }
             card.addView(passTv)
 
             // Pickup Row: 🟢 Pickup Name
             val pickupTv = TextView(context).apply {
                 text = "🟢 ${request.pickupName.ifBlank { "Pickup Location" }}"
-                textSize = 12f
+                textSize = 13f
                 setTextColor(Color.parseColor("#0F172A"))
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
-                setPadding(0, dp(2), 0, dp(2))
+                setPadding(0, dp(2), 0, dp(3))
             }
             card.addView(pickupTv)
 
             // Drop Row: 🔴 Drop Name
             val dropTv = TextView(context).apply {
                 text = "🔴 ${request.dropoffName.ifBlank { "Drop Location" }}"
-                textSize = 12f
+                textSize = 13f
                 setTextColor(Color.parseColor("#64748B"))
                 maxLines = 1
                 ellipsize = android.text.TextUtils.TruncateAt.END
-                setPadding(0, dp(2), 0, dp(8))
+                setPadding(0, dp(2), 0, dp(10))
             }
             card.addView(dropTv)
 
@@ -152,12 +311,15 @@ object FloatingRideOverlayManager {
                     cornerRadius = dp(12).toFloat()
                     setStroke(dp(1), Color.parseColor("#CBD5E1"))
                 }
-                layoutParams = LinearLayout.LayoutParams(dp(110), dp(42)).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(110), dp(44)).apply {
                     marginEnd = dp(10)
                 }
                 setOnClickListener {
                     dismissOverlay()
                     onDecline()
+                    if (!MainActivity.isAppInForeground) {
+                        showOnlineBubble(context)
+                    }
                 }
             }
 
@@ -165,12 +327,12 @@ object FloatingRideOverlayManager {
                 text = "✓ Accept Ride"
                 textSize = 14f
                 setTextColor(Color.parseColor("#0F172A"))
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                typeface = Typeface.DEFAULT_BOLD
                 background = GradientDrawable().apply {
                     setColor(Color.parseColor("#F5B838")) // Gold/Amber
                     cornerRadius = dp(12).toFloat()
                 }
-                layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f)
+                layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f)
                 setOnClickListener {
                     dismissOverlay()
                     onAccept()
@@ -184,19 +346,24 @@ object FloatingRideOverlayManager {
             root.addView(card)
 
             wm.addView(root, params)
-            overlayView = root
-        } catch (e: Exception) {
-            overlayView = null
+            cardOverlayView = root
+        } catch (_: Exception) {
+            cardOverlayView = null
         }
     }
 
     fun dismissOverlay() {
         try {
-            overlayView?.let { view ->
+            cardOverlayView?.let { view ->
                 windowManager?.removeViewImmediate(view)
             }
         } catch (_: Exception) {}
-        overlayView = null
+        cardOverlayView = null
+    }
+
+    fun dismissAll() {
+        dismissOverlay()
+        dismissBubble()
         windowManager = null
     }
 }

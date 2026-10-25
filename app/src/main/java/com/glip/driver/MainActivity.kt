@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         isAppInForeground = true
-        com.glip.driver.service.FloatingRideOverlayManager.dismissOverlay()
+        com.glip.driver.service.FloatingRideOverlayManager.dismissAll()
         // Refresh live driver ad placements on returning to foreground
         try {
             AdManager.refresh()
@@ -35,6 +35,10 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         isAppInForeground = false
+        // Show floating round "H" Online Bubble when driver minimizes or leaves the app
+        if (com.glip.driver.service.GlipDriverDispatchService.isRunning) {
+            com.glip.driver.service.FloatingRideOverlayManager.showOnlineBubble(applicationContext)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -1578,6 +1578,10 @@ fun HomeScreen(
                     Surface(
                         onClick = {
                             if (!isSyncingOnline) {
+                                // Prompt overlay permission if turning ONLINE without it
+                                if (!isOnline && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(context)) {
+                                    showOverlayPermissionPrompt = true
+                                }
                                 isSyncingOnline = true
                                 coroutineScope.launch {
                                     try {
@@ -1836,14 +1840,14 @@ fun HomeScreen(
                 },
                 title = {
                     Text(
-                        text = "Enable Floating Ride Alerts",
+                        text = "Enable Floating Haze Icon & Ride Popups",
                         fontWeight = FontWeight.Bold,
                         color = GlipNavyPrimary
                     )
                 },
                 text = {
                     Text(
-                        text = "Rapido / Uber / Ola ki tarah phone me bahar hote huye bhi ride alerts pane ke liye 'Display over other apps' allow karein.",
+                        text = "Rapido / Uber ki tarah WhatsApp ya doosre apps chalate waqt bhi screen par gol Haze Online icon aur ride popup pane ke liye 'Display over other apps' allow karein.",
                         color = Color(0xFF475569),
                         fontSize = 14.sp
                     )
@@ -1872,7 +1876,7 @@ fun HomeScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showOverlayPermissionPrompt = false }) {
-                        Text("Later", color = Color(0xFF94A3B8))
+                        Text("Not Now", color = Color(0xFF94A3B8))
                     }
                 }
             )
