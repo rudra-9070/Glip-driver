@@ -344,14 +344,7 @@ fun GlipOsmMapView(
             if (roadResult != null && roadResult.points.isNotEmpty()) {
                 casingLineRef?.setPoints(roadResult.points)
                 coreLineRef?.setPoints(roadResult.points)
-
-                mapViewRef?.let { mv ->
-                    mv.controller.apply {
-                        setZoom(17.2)
-                        animateTo(driverGeoPoint)
-                    }
-                    mv.invalidate()
-                }
+                mapViewRef?.invalidate()
             }
         } else if (isRouteActive) {
             originMarkerRef?.isEnabled = true
@@ -368,14 +361,7 @@ fun GlipOsmMapView(
             if (roadResult != null && roadResult.points.isNotEmpty()) {
                 casingLineRef?.setPoints(roadResult.points)
                 coreLineRef?.setPoints(roadResult.points)
-
-                mapViewRef?.let { mv ->
-                    mv.controller.apply {
-                        setZoom(17.0)
-                        animateTo(driverGeoPoint)
-                    }
-                    mv.invalidate()
-                }
+                mapViewRef?.invalidate()
             }
         } else {
             // Remove demo polyline when no route is active
@@ -383,10 +369,6 @@ fun GlipOsmMapView(
             coreLineRef?.setPoints(emptyList())
             originMarkerRef?.isEnabled = false
             destMarkerRef?.isEnabled = false
-            mapViewRef?.controller?.apply {
-                setZoom(17.0)
-                setCenter(driverGeoPoint)
-            }
             mapViewRef?.invalidate()
         }
     }
