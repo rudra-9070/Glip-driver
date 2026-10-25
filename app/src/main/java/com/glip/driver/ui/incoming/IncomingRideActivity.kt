@@ -111,7 +111,7 @@ class IncomingRideActivity : ComponentActivity() {
         val seats = intent.getIntExtra(EXTRA_SEATS, 1)
 
         setContent {
-            val incomingRequests by GlipDriverApplication.repository.incomingRequestsFlow.collectAsState()
+            val incomingRequests by GlipDriverApplication.repository.requestsFlow.collectAsState(initial = emptyList())
             val coroutineScope = rememberCoroutineScope()
 
             // If request was accepted or cancelled elsewhere, auto-dismiss
