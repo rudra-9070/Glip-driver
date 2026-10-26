@@ -522,7 +522,7 @@ fun HomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 14.dp, vertical = 6.dp),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(8.dp),
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
                         border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f))
                     ) {
@@ -539,7 +539,7 @@ fun HomeScreen(
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Background me ride alerts pane ke liye 'Display over other apps' allow karein.",
+                                text = "Allow 'Display over other apps' to receive instant background ride notifications.",
                                 fontSize = 11.sp,
                                 color = Color(0xFF78350F),
                                 lineHeight = 15.sp
@@ -690,15 +690,15 @@ fun HomeScreen(
                             }
                         }
                     },
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = Color(0xFFFEF2F2),
                     border = BorderStroke(1.dp, Color(0xFFFECACA)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 2.dp)
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
@@ -710,9 +710,9 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = if (!hasPermission) {
-                                "Location permission chahiye live map ke liye. Tap to Allow."
+                                "Location permission is required for live navigation. Tap to allow."
                             } else {
-                                "⚠️ Device GPS OFF hai. Live location ke liye yahan tap karke ON karein."
+                                "⚠️ Device GPS is turned off. Tap here to enable live location."
                             },
                             color = Color(0xFFDC2626),
                             fontSize = 12.sp,
@@ -727,8 +727,8 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 2.dp),
-                shape = RoundedCornerShape(16.dp),
+                    .padding(start = 4.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -736,7 +736,7 @@ fun HomeScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(8.dp))
                 ) {
                     GlipOsmMapView(
                         route = if (isAvailable && driverRoute?.isActive == true && !driverRoute?.destinationName.isNullOrBlank() && driverRoute?.destinationName != "Independent Ride") driverRoute else null,
@@ -906,8 +906,8 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = if (requests.isNotEmpty()) 165.dp else 195.dp)
-                        .padding(horizontal = 12.dp, vertical = 2.dp),
-                    shape = RoundedCornerShape(14.dp),
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    shape = RoundedCornerShape(8.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                     border = BorderStroke(1.2.dp, Color(0xFF10B981))
@@ -937,7 +937,7 @@ fun HomeScreen(
                                 val etaMins = ((distToDrop / 28.0) * 60).roundToInt().coerceAtLeast(1)
 
                                 Surface(
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(6.dp),
                                     color = if (!trip.isPickedUp) Color(0xFFF0FDF4) else Color(0xFFF8FAFC),
                                     border = BorderStroke(
                                         width = 1.dp,
@@ -1183,7 +1183,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = if (activeTrips.isNotEmpty()) 170.dp else 230.dp)
-                        .padding(horizontal = 12.dp, vertical = 2.dp),
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(requests, key = { it.id }) { req ->
@@ -1210,7 +1210,7 @@ fun HomeScreen(
 
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(8.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.White),
                             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                             border = BorderStroke(1.2.dp, if (activeTrips.isNotEmpty()) Color(0xFF10B981) else Color(0xFFF59E0B))
@@ -1247,7 +1247,7 @@ fun HomeScreen(
                                         }
 
                                         Surface(
-                                            shape = RoundedCornerShape(10.dp),
+                                            shape = RoundedCornerShape(6.dp),
                                             color = Color.White,
                                             border = BorderStroke(1.dp, if (activeTrips.isNotEmpty()) Color(0xFFA7F3D0) else Color(0xFFFDE68A))
                                         ) {
@@ -1363,7 +1363,7 @@ fun HomeScreen(
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .background(Color(0xFFF8FAFC), RoundedCornerShape(8.dp))
+                                            .background(Color(0xFFF8FAFC), RoundedCornerShape(6.dp))
                                             .padding(horizontal = 8.dp, vertical = 5.dp)
                                     ) {
                                         // Pickup row
@@ -1473,7 +1473,7 @@ fun HomeScreen(
                                             modifier = Modifier
                                                 .weight(0.35f)
                                                 .height(36.dp),
-                                            shape = RoundedCornerShape(10.dp),
+                                            shape = RoundedCornerShape(6.dp),
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = Color(0xFFFEE2E2),
                                                 contentColor = Color(0xFFDC2626)
@@ -1510,7 +1510,7 @@ fun HomeScreen(
                                             modifier = Modifier
                                                 .weight(0.65f)
                                                 .height(36.dp),
-                                            shape = RoundedCornerShape(10.dp),
+                                            shape = RoundedCornerShape(6.dp),
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = if (activeTrips.isNotEmpty()) Color(0xFF10B981) else Color(0xFFF5B838),
                                                 contentColor = if (activeTrips.isNotEmpty()) Color.White else Color(0xFF0F172A)
@@ -1551,7 +1551,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding(),
-                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
+                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 0.dp, bottomEnd = 0.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
@@ -1664,7 +1664,7 @@ fun HomeScreen(
                     // 3. Planned Route Setup Button
                     Surface(
                         onClick = onEditRoute,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(6.dp),
                         color = Color(0xFFF0F9FF),
                         border = BorderStroke(1.dp, Color(0xFFBAE6FD)),
                         modifier = Modifier.height(34.dp)
@@ -1697,7 +1697,7 @@ fun HomeScreen(
             val trip = verifyingTrip!!
             AlertDialog(
                 onDismissRequest = { verifyingTrip = null },
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(10.dp),
                 containerColor = Color.White,
                 icon = {
                     Box(
@@ -1727,7 +1727,7 @@ fun HomeScreen(
                     Column {
                         val cleanPassenger = trip.passengerAlias.replace(Regex("\\s*\\([^)]*\\)"), "").trim().ifBlank { "Passenger" }
                         Text(
-                            text = "$cleanPassenger se 4-digit ride OTP lein. OTP verify hone par map me passenger pickup marker ki blinking band ho jayegi.",
+                            text = "Ask $cleanPassenger for the 4-digit ride OTP. Verifying the OTP confirms passenger onboarding and starts navigation.",
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
                         )
@@ -1762,11 +1762,11 @@ fun HomeScreen(
                                 if (isMatch) {
                                     verifyingTrip = null
                                 } else {
-                                    otpErrorMessage = "Galat OTP! Kripya passenger ka 4-digit OTP enter karein."
+                                    otpErrorMessage = "Incorrect OTP. Please check with the passenger and enter the valid 4-digit OTP."
                                 }
                             }
                         },
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(6.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                     ) {
                         Text("VERIFY & ONBOARD", fontWeight = FontWeight.Bold)
@@ -1792,6 +1792,8 @@ fun HomeScreen(
         if (showGpsTurnOnDialog && !isGpsEnabled) {
             AlertDialog(
                 onDismissRequest = { showGpsTurnOnDialog = false },
+                shape = RoundedCornerShape(10.dp),
+                containerColor = Color.White,
                 icon = {
                     Icon(
                         imageVector = Icons.Default.LocationOff,
@@ -1809,7 +1811,7 @@ fun HomeScreen(
                 },
                 text = {
                     Text(
-                        text = "Aapka device GPS location OFF hai. Haze Driver app me live location dekhne aur raste ke passengers match karne ke liye device GPS ON karein.",
+                        text = "Your device GPS is turned off. Enable GPS to view your live location and receive ride requests along your route.",
                         color = Color(0xFF475569),
                         fontSize = 14.sp
                     )
@@ -1844,6 +1846,8 @@ fun HomeScreen(
         if (showOverlayPermissionPrompt && !hasOverlayPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             AlertDialog(
                 onDismissRequest = { showOverlayPermissionPrompt = false },
+                shape = RoundedCornerShape(10.dp),
+                containerColor = Color.White,
                 icon = {
                     Text(text = "🔔", fontSize = 32.sp)
                 },
@@ -1856,7 +1860,7 @@ fun HomeScreen(
                 },
                 text = {
                     Text(
-                        text = "Rapido / Uber ki tarah doosre apps chalate waqt bhi screen par floating HAZE Online widget aur instant ride card pane ke liye 'Display over other apps' allow karein.",
+                        text = "Allow 'Display over other apps' to display the floating HAZE Online widget and receive ride alerts even while using other apps.",
                         color = Color(0xFF475569),
                         fontSize = 14.sp
                     )
@@ -1895,6 +1899,8 @@ fun HomeScreen(
         if (showProminentDisclosureDialog && !hasPermission) {
             AlertDialog(
                 onDismissRequest = { showProminentDisclosureDialog = false },
+                shape = RoundedCornerShape(10.dp),
+                containerColor = Color.White,
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Place,

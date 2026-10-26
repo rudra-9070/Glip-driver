@@ -246,7 +246,7 @@ fun RouteSetupScreen(
             },
             text = {
                 Text(
-                    text = "Your Live location and destination is same. Please change and choose a different destination.",
+                    text = "Your live location and destination cannot be the same. Please choose a different destination.",
                     color = Color(0xFF334155),
                     fontSize = 14.sp
                 )
@@ -259,7 +259,7 @@ fun RouteSetupScreen(
                 }
             },
             containerColor = Color.White,
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(10.dp)
         )
     }
 
@@ -297,7 +297,7 @@ fun RouteSetupScreen(
 
         // Modern "Choose Destination" Selector Card
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(8.dp),
             color = Color.White,
             border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
             modifier = Modifier.fillMaxWidth()
@@ -472,7 +472,7 @@ fun RouteSetupScreen(
 
                     Toast.makeText(
                         context,
-                        "$destText Saved Destinations me add ho gaya! Map par set karne ke liye ON karein.",
+                        "$destText saved to destinations. Toggle ON to activate on the map.",
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -493,7 +493,7 @@ fun RouteSetupScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(8.dp),
             colors = CardDefaults.cardColors(
                 containerColor = if (isIndependentRideActive) Color(0xFFF0FDF4) else Color(0xFFF8FAFC)
             ),
@@ -567,7 +567,7 @@ fun RouteSetupScreen(
                                 }
                                 Toast.makeText(
                                     context,
-                                    "Independent Ride mode active! Paas ki sabhi rides ab aapko milengi.",
+                                    "Independent Ride mode active. You will receive all nearby ride requests.",
                                     Toast.LENGTH_SHORT
                                 ).show()
                                 onSavedOrSkipped()
@@ -602,7 +602,7 @@ fun RouteSetupScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(8.dp),
                 color = Color(0xFFF8FAFC),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0))
             ) {
@@ -625,7 +625,7 @@ fun RouteSetupScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = if (isActive) Color(0xFFF0FDF4) else Color.White
                 ),
@@ -888,7 +888,7 @@ fun DestinationMapPickerView(
             },
             text = {
                 Text(
-                    text = "Your Live location and destination is same. Please change and choose a different destination.",
+                    text = "Your live location and destination cannot be the same. Please choose a different destination.",
                     color = Color(0xFF334155),
                     fontSize = 14.sp
                 )
@@ -901,7 +901,7 @@ fun DestinationMapPickerView(
                 }
             },
             containerColor = Color.White,
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(10.dp)
         )
     }
 
@@ -1048,7 +1048,7 @@ fun DestinationMapPickerView(
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(8.dp),
             color = Color.White,
             shadowElevation = 6.dp,
             border = BorderStroke(1.dp, Color(0xFFE2E8F0))
@@ -1140,7 +1140,7 @@ fun DestinationMapPickerView(
                         onSearch = { performSearch() }
                     ),
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -1181,7 +1181,7 @@ fun DestinationMapPickerView(
                     locationManager.startTracking()
                     Toast.makeText(
                         context,
-                        "Device GPS search kar raha hai... Kripya 2 second ruk kar dubara tap karein.",
+                        "Searching for GPS signal... Please wait a moment and tap again.",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -1210,7 +1210,7 @@ fun DestinationMapPickerView(
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp)
                 .navigationBarsPadding(),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(8.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
             border = BorderStroke(1.dp, Color(0xFFE2E8F0))
