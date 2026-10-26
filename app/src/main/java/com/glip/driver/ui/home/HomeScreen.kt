@@ -1736,7 +1736,7 @@ fun HomeScreen(
                             value = enteredOtpText,
                             onValueChange = { if (it.length <= 4) enteredOtpText = it },
                             label = { Text("4-Digit OTP") },
-                            placeholder = { Text(if (trip.otp.isNotBlank()) "e.g. ${trip.otp}" else "e.g. 1234") },
+                            placeholder = { Text("Enter 4-digit OTP") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Number
