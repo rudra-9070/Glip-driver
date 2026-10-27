@@ -176,6 +176,7 @@ fun HomeScreen(
     onNavigateToWallet: () -> Unit = {},
     onNavigateToActivity: () -> Unit = {},
     onNavigateToRequests: () -> Unit = {},
+    onNavigateToEarnings: () -> Unit = {},
     onEditVehicle: () -> Unit = {},
     onEditRoute: () -> Unit = {},
     onViewAllRequests: () -> Unit = {},
@@ -509,6 +510,35 @@ fun HomeScreen(
                     onClick = {
                         coroutineScope.launch { drawerState.close() }
                         onNavigateToActivity()
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                        unselectedContainerColor = Color.Transparent
+                    ),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+
+                // 4. Earnings Tab
+                NavigationDrawerItem(
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.AccountBalanceWallet,
+                            contentDescription = "Earnings",
+                            tint = Color(0xFFB45309),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = "Earnings",
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF0F172A),
+                            fontSize = 15.sp
+                        )
+                    },
+                    selected = false,
+                    onClick = {
+                        coroutineScope.launch { drawerState.close() }
+                        onNavigateToEarnings()
                     },
                     colors = NavigationDrawerItemDefaults.colors(
                         unselectedContainerColor = Color.Transparent
@@ -1602,7 +1632,7 @@ fun HomeScreen(
                         color = Color.White,
                         border = BorderStroke(if (isOnline) 1.5.dp else 1.dp, toggleBorderColor),
                         modifier = Modifier
-                            .width(102.dp)
+                            .width(94.dp)
                             .height(34.dp)
                     ) {
                         Box(
@@ -1615,16 +1645,16 @@ fun HomeScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 6.dp),
+                                    .padding(horizontal = 5.dp),
                                 horizontalArrangement = if (isOnline) Arrangement.Start else Arrangement.End,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = if (isSyncingOnline) "SYNC..." else if (isOnline) "ONLINE" else "OFFLINE",
                                     color = toggleTextColor,
-                                    fontSize = if (isSyncingOnline) 8.5.sp else if (isOnline) 10.5.sp else 9.5.sp,
+                                    fontSize = if (isSyncingOnline) 8.sp else if (isOnline) 9.5.sp else 9.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 0.5.sp
+                                    letterSpacing = 0.4.sp
                                 )
                             }
 
@@ -1632,7 +1662,7 @@ fun HomeScreen(
                             Box(
                                 modifier = Modifier
                                     .align(if (isOnline) Alignment.CenterEnd else Alignment.CenterStart)
-                                    .size(24.dp)
+                                    .size(22.dp)
                                     .shadow(elevation = 2.dp, shape = CircleShape)
                                     .clip(CircleShape)
                                     .background(Color.White)
@@ -1645,14 +1675,14 @@ fun HomeScreen(
                             ) {
                                 if (isSyncingOnline) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(14.dp),
+                                        modifier = Modifier.size(12.dp),
                                         strokeWidth = 2.dp,
                                         color = if (isOnline) Color(0xFF16A34A) else Color(0xFF0284C7)
                                     )
                                 } else {
                                     Box(
                                         modifier = Modifier
-                                            .size(9.dp)
+                                            .size(8.dp)
                                             .clip(CircleShape)
                                             .background(if (isOnline) Color(0xFF16A34A) else Color(0xFF94A3B8))
                                     )
@@ -1661,7 +1691,35 @@ fun HomeScreen(
                         }
                     }
 
-                    // 3. Planned Route Setup Button
+                    // 3. EARNINGS Button (Matches user request: Menu, ONLINE/OFFLINE, EARNINGS, Route)
+                    Surface(
+                        onClick = onNavigateToEarnings,
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFFEF3C7),
+                        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountBalanceWallet,
+                                contentDescription = "Earnings",
+                                tint = Color(0xFFB45309),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "Earnings",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF92400E)
+                            )
+                        }
+                    }
+
+                    // 4. Planned Route Setup Button
                     Surface(
                         onClick = onEditRoute,
                         shape = RoundedCornerShape(6.dp),
@@ -1670,19 +1728,19 @@ fun HomeScreen(
                         modifier = Modifier.height(34.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AltRoute,
                                 contentDescription = "Planned Route Setup",
                                 tint = Color(0xFF0284C7),
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = "Route",
-                                fontSize = 11.5.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0284C7)
                             )

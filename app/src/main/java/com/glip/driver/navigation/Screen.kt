@@ -13,6 +13,7 @@ sealed class Screen(val route: String) {
 
     // Main Bottom Navigation Tabs
     data object Home : Screen("home")
+    data object Earnings : Screen("earnings")
     data object Requests : Screen("requests")
     data object Activity : Screen("activity")
     data object Profile : Screen("profile")

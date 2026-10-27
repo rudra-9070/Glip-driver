@@ -962,7 +962,7 @@ object SupabaseClient {
     /**
      * Mark a ride request as CANCELLED in Supabase.
      */
-    suspend fun cancelRideRequest(requestId: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun cancelRideRequest(requestId: String, cancelledBy: String = "DRIVER"): Boolean = withContext(Dispatchers.IO) {
         try {
             val endpoint = "/ride_requests?id=eq.$requestId"
             val conn = openConnection(endpoint, "PATCH")
@@ -970,6 +970,7 @@ object SupabaseClient {
 
             val json = JSONObject().apply {
                 put("status", "CANCELLED")
+                put("cancelled_by", cancelledBy)
             }
 
             OutputStreamWriter(conn.outputStream).use { writer ->
@@ -1018,5 +1019,101 @@ object SupabaseClient {
         } catch (_: Exception) {}
         cancelled
     }
+
+    /**
+     * Fetches completed and cancelled orders for driver from Supabase.
+     * Real-time live data query for the Earnings screen.
+     */
+    suspend fun fetchDriverOrderHistory(driverId: String?, driverMobile: String?): List<DriverOrderRecord> = withContext(Dispatchers.IO) {
+        val list = mutableListOf<DriverOrderRecord>()
+        try {
+            val cleanMobile = driverMobile?.replace(Regex("[^0-9]"), "")?.takeLast(10) ?: ""
+            val filter = if (!driverId.isNullOrBlank() && cleanMobile.isNotBlank()) {
+                "or=(driver_id.eq.$driverId,driver_id.eq.$cleanMobile,driver_id.ilike.*$cleanMobile*)"
+            } else if (!driverId.isNullOrBlank()) {
+                "driver_id.eq.$driverId"
+            } else if (cleanMobile.isNotBlank()) {
+                "or=(driver_id.eq.$cleanMobile,driver_id.ilike.*$cleanMobile*)"
+            } else {
+                ""
+            }
+
+            val filterParam = if (filter.isNotBlank()) "&$filter" else ""
+            val endpoint = "/ride_requests?status=in.(COMPLETED,CANCELLED,completed,cancelled)$filterParam&order=created_at.desc&limit=100"
+            val conn = openConnection(endpoint, "GET")
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val response = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
+                val arr = JSONArray(response)
+                val inFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }
+                val timeOutFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+                val dateOutFormat = SimpleDateFormat("d MMM, yyyy", Locale.getDefault())
+
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val id = obj.optString("id")
+                    val rawStatus = obj.optString("status", "COMPLETED").uppercase(Locale.US)
+                    val status = if (rawStatus == "CANCELLED") "CANCELLED" else "COMPLETED"
+                    val fare = obj.optDouble("fare_amount", 0.0)
+                    val vType = obj.optString("vehicle_type", "Scooty Direct")
+                    val pickup = obj.optString("pickup_name", "Pickup Location")
+                    val drop = obj.optString("drop_name", "Drop Location")
+                    val createdAtStr = obj.optString("created_at", "")
+                    val cancelledBy = obj.optString("cancelled_by", "")
+
+                    var timeDisp = "Just now"
+                    var dateDisp = "Today"
+                    var millis = System.currentTimeMillis()
+                    if (createdAtStr.isNotBlank()) {
+                        try {
+                            val cleanDate = createdAtStr.substringBefore('.').substringBefore('+').substringBefore('Z')
+                            val parsed = inFormat.parse(cleanDate)
+                            if (parsed != null) {
+                                millis = parsed.time
+                                timeDisp = timeOutFormat.format(parsed).lowercase(Locale.getDefault())
+                                dateDisp = dateOutFormat.format(parsed)
+                            }
+                        } catch (_: Exception) {}
+                    }
+
+                    list.add(
+                        DriverOrderRecord(
+                            id = id,
+                            vehicleType = if (vType.isBlank() || vType.equals("null", true)) "Scooty Direct" else vType,
+                            timeDisplay = timeDisp,
+                            dateDisplay = dateDisp,
+                            fareAmount = fare,
+                            status = status,
+                            pickupName = pickup,
+                            dropoffName = drop,
+                            createdAtMillis = millis,
+                            cancelledBy = cancelledBy
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchDriverOrderHistory failed: ${e.message}")
+        }
+        list
+    }
 }
+
+/**
+ * Model representing an order in driver history (Completed or Cancelled).
+ */
+data class DriverOrderRecord(
+    val id: String,
+    val vehicleType: String,
+    val timeDisplay: String,
+    val dateDisplay: String,
+    val fareAmount: Double,
+    val status: String, // "COMPLETED" or "CANCELLED"
+    val pickupName: String,
+    val dropoffName: String,
+    val createdAtMillis: Long,
+    val cancelledBy: String = ""
+)
 

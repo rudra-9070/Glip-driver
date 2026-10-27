@@ -19,6 +19,7 @@ import com.glip.driver.ui.onboarding.RouteSetupScreen
 import com.glip.driver.ui.onboarding.VehicleSetupScreen
 import com.glip.driver.ui.profile.ProfileScreen
 import com.glip.driver.ui.requests.RequestsScreen
+import com.glip.driver.ui.earnings.EarningsScreen
 import com.glip.driver.ui.services.ComingSoonScreen
 import com.glip.driver.ui.services.SchoolTransportationScreen
 import com.glip.driver.ui.wallet.WalletScreen
@@ -179,10 +180,17 @@ fun GlipDriverNavHost(
                 onNavigateToWallet = { navController.navigate(Screen.Wallet.route) },
                 onNavigateToActivity = { navController.navigate(Screen.Activity.route) },
                 onNavigateToRequests = { navController.navigate(Screen.Requests.route) },
+                onNavigateToEarnings = { navController.navigate(Screen.Earnings.route) },
                 onEditVehicle = { navController.navigate(Screen.VehicleSetup.route) },
                 onEditRoute = { navController.navigate(Screen.RouteSetup.route) },
                 onViewAllRequests = { navController.navigate(Screen.Requests.route) },
                 onNavigateToDiagnostics = { navController.navigate(Screen.Diagnostics.route) }
+            )
+        }
+        composable(Screen.Earnings.route) {
+            EarningsScreen(
+                repository = repository,
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.Wallet.route) {
