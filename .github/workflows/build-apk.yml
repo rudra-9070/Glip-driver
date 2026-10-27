@@ -87,27 +87,27 @@ jobs:
             exit 1
           fi
           echo "Found APK at: $APK_PATH"
-          cp "$APK_PATH" "HAZE Driver.apk"
-          ls -lh "HAZE Driver.apk"
+          cp "$APK_PATH" GlipDriver.apk
+          ls -lh GlipDriver.apk
 
       - name: Upload APK to Artifacts (Direct File)
         uses: actions/upload-artifact@v4
         with:
-          name: HAZE-Driver-Direct-APK
-          path: "HAZE Driver.apk"
+          name: GlipDriver-Direct-APK
+          path: GlipDriver.apk
           retention-days: 14
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: latest
-          name: "HAZE Driver Latest Release (v1.0.1)"
+          tag_name: v1.0.0-demo
+          name: "Glip Driver Demo APK (Direct Download)"
           body: |
-            ### HAZE Driver — Official Release
-            - **Direct APK Download**: Tap `HAZE Driver.apk` below on your mobile to download directly.
+            ### 🚗 Glip Driver — Android MVP
+            - **Direct APK Download**: Tap `GlipDriver.apk` below on your mobile to download directly (No zip extraction needed).
             - Built with Jetpack Compose & Material 3.
-          files: "HAZE Driver.apk"
+          files: GlipDriver.apk
           prerelease: false
           make_latest: true
         env:
