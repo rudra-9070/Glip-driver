@@ -391,8 +391,15 @@ object SupabaseClient {
                     delConn.disconnect()
                 } catch (e: Exception) {}
             }
+            if (!driverIdentifier.isNullOrBlank() && driverIdentifier != uuid) {
+                try {
+                    val delConn2 = openConnection("/driver_routes?driver_id=eq.$driverIdentifier", "DELETE")
+                    delConn2.responseCode
+                    delConn2.disconnect()
+                } catch (e: Exception) {}
+            }
 
-            if (!isActive || destinationName.isBlank() || destLat == 0.0 || destLng == 0.0) {
+            if (!isActive || destinationName.isBlank() || destLat == 0.0 || destLng == 0.0 || destinationName.contains("Independent", ignoreCase = true)) {
                 return@withContext true // Successfully deactivated/cleared
             }
 
