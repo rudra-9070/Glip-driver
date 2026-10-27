@@ -30,6 +30,9 @@ import androidx.compose.runtime.setValue
 import com.glip.driver.ui.auth.OtpVerificationScreen
 import com.glip.driver.ui.auth.DriverDetailsScreen
 import com.glip.driver.ui.auth.VehicleCategorySelectScreen
+import com.glip.driver.ui.components.DriverLoadingSplashScreen
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 
 @Composable
 fun GlipDriverNavHost(
@@ -49,11 +52,22 @@ fun GlipDriverNavHost(
     var regVehiclePlate by remember { mutableStateOf("") }
     var regLicenseNumber by remember { mutableStateOf("") }
 
-    NavHost(
-        navController = navController,
-        startDestination = startDestination,
-        modifier = modifier.fillMaxSize()
-    ) {
+    // Instant splash loader: prevents cold start freeze and delivers top-tier app startup feel
+    var isAppLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        delay(700)
+        isAppLoading = false
+    }
+
+    if (isAppLoading) {
+        DriverLoadingSplashScreen(modifier = modifier)
+    } else {
+        NavHost(
+            navController = navController,
+            startDestination = startDestination,
+            modifier = modifier.fillMaxSize()
+        ) {
         // Welcome & Auth
         composable(Screen.Welcome.route) {
             WelcomeScreen(
@@ -249,4 +263,5 @@ fun GlipDriverNavHost(
             )
         }
     }
+}
 }

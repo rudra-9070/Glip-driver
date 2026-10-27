@@ -11,8 +11,8 @@ android {
         applicationId = "com.glip.driver"
         minSdk = 24
         targetSdk = 35
-        versionCode = 58
-        versionName = "1.5.6"
+        versionCode = 59
+        versionName = "1.0.1"
         multiDexEnabled = true
 
         ndk {
@@ -77,6 +77,13 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+
+    applicationVariants.all {
+        outputs.all {
+            val output = this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output?.outputFileName = "HAZE Driver.apk"
         }
     }
 }
