@@ -97,7 +97,7 @@ fun WelcomeScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Already travelling on a route? Monetize your unoccupied seats with compatible local co-passengers. Not a personal cab booking app.",
+                text = "Already travelling on a route. Monetize your unoccupied seats with compatible local co-passengers. Not a personal cab booking app.",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Color(0xFF64748B),
                     textAlign = TextAlign.Center,

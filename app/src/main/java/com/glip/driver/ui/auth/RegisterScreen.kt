@@ -301,7 +301,7 @@ fun RegisterScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Already have a driver account? ",
+                    text = "Already have a driver account ",
                     style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B))
                 )
                 Text(

@@ -280,7 +280,7 @@ fun LoginScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "New to Haze? ",
+                    text = "New to Glip ",
                     fontSize = 14.sp,
                     color = Color(0xFF64748B)
                 )

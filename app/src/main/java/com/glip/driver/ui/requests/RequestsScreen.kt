@@ -199,7 +199,7 @@ fun RequestsScreen(
             onDismissRequest = { requestToConfirmAccept = null },
             title = {
                 Text(
-                    text = "Confirm Seat Allocation?",
+                    text = "Confirm Seat Allocation",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
             },

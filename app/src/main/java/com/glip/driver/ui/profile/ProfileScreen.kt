@@ -328,7 +328,7 @@ fun ProfileScreen(
     if (showClearDataConfirm) {
         AlertDialog(
             onDismissRequest = { showClearDataConfirm = false },
-            title = { Text("Clear All Data?") },
+            title = { Text("Clear All Data") },
             text = {
                 Text("This will wipe the current driver profile, reset vehicle seats, reseed route requests, and return to the welcome screen.")
             },
