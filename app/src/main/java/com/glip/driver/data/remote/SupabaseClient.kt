@@ -220,7 +220,8 @@ object SupabaseClient {
                 return@withContext emptyList()
             }
 
-            val endpoint = "/ride_requests?status=in.(ACCEPTED,IN_PROGRESS)&$filter&order=created_at.desc&limit=5"
+            val cutoffIso = getIsoTimestampMinusSeconds(3600) // Only trips within last 60 minutes
+            val endpoint = "/ride_requests?status=in.(ACCEPTED,IN_PROGRESS)&$filter&created_at=gte.$cutoffIso&order=created_at.desc&limit=5"
             val conn = openConnection(endpoint, "GET")
             val code = conn.responseCode
             if (code in 200..299) {
@@ -300,6 +301,24 @@ object SupabaseClient {
             val json = JSONObject().apply {
                 put("is_online", isOnline)
                 put("last_updated_at", getIsoTimestamp())
+            }
+
+            if (!isOnline) {
+                // When going offline, delete any active corridor route from Supabase driver_routes
+                try {
+                    val dUuid = if (!driverId.isNullOrBlank() && isValidUuid(driverId)) driverId else null
+                    if (dUuid != null) {
+                        val del1 = openConnection("/driver_routes?driver_id=eq.$dUuid", "DELETE")
+                        del1.responseCode
+                        del1.disconnect()
+                    }
+                    val cleanMob = mobileNumber.replace(Regex("[^0-9]"), "").takeLast(10)
+                    if (cleanMob.isNotBlank()) {
+                        val del2 = openConnection("/driver_routes?driver_mobile=eq.$cleanMob", "DELETE")
+                        del2.responseCode
+                        del2.disconnect()
+                    }
+                } catch (_: Exception) {}
             }
 
             OutputStreamWriter(conn.outputStream).use { writer ->
@@ -972,14 +991,28 @@ object SupabaseClient {
         val cancelled = mutableSetOf<String>()
         try {
             val inFilter = requestIds.joinToString(",")
-            val endpoint = "/ride_requests?id=in.($inFilter)&status=eq.CANCELLED&select=id"
+            val endpoint = "/ride_requests?id=in.($inFilter)&select=id,status"
             val conn = openConnection(endpoint, "GET")
             if (conn.responseCode in 200..299) {
                 val resp = BufferedReader(InputStreamReader(conn.inputStream)).use { it.readText() }
                 val arr = JSONArray(resp)
+                val foundIds = mutableSetOf<String>()
                 for (i in 0 until arr.length()) {
-                    val id = arr.getJSONObject(i).optString("id", "")
-                    if (id.isNotBlank()) cancelled.add(id)
+                    val obj = arr.getJSONObject(i)
+                    val id = obj.optString("id", "")
+                    val st = obj.optString("status", "")
+                    if (id.isNotBlank()) {
+                        foundIds.add(id)
+                        if (st.equals("CANCELLED", ignoreCase = true) || st.equals("EXPIRED", ignoreCase = true)) {
+                            cancelled.add(id)
+                        }
+                    }
+                }
+                // If a request was purged/deleted from Supabase, passenger cancelled it
+                requestIds.forEach { reqId ->
+                    if (!foundIds.contains(reqId)) {
+                        cancelled.add(reqId)
+                    }
                 }
             }
         } catch (_: Exception) {}
