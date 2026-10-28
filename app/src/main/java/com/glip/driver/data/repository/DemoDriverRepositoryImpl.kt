@@ -222,15 +222,41 @@ class DemoDriverRepositoryImpl(
         updateVehicle(updatedVehicle)
         com.glip.driver.data.remote.SupabaseClient.updateDriverSeats(driverId, newAvailable)
 
-        // Sync driver route destination to passenger's drop location so corridor stays active
-        com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
-            driverIdentifier = driverId,
-            mobileNumber = prof?.mobileNumber,
-            destinationName = req.dropoffName,
-            destLat = req.dropoffLat,
-            destLng = req.dropoffLng,
-            isActive = true
-        )
+        // Route Preservation: Only set passenger drop as route destination if driver did not have an active route set.
+        // If driver already has an active route corridor (e.g., Bus Stand / Station), preserve it so co-passengers can join!
+        val currentRoute = _routeFlow.value
+        val shouldSetPassengerAsDestination = !currentRoute.isActive ||
+                currentRoute.destinationName.isBlank() ||
+                currentRoute.destinationName.contains("Independent", ignoreCase = true) ||
+                currentRoute.destLat == 0.0
+
+        if (shouldSetPassengerAsDestination) {
+            val updatedRoute = currentRoute.copy(
+                destinationName = req.dropoffName,
+                destLat = req.dropoffLat,
+                destLng = req.dropoffLng,
+                isActive = true
+            )
+            _routeFlow.value = updatedRoute
+            com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
+                driverIdentifier = driverId,
+                mobileNumber = prof?.mobileNumber,
+                destinationName = req.dropoffName,
+                destLat = req.dropoffLat,
+                destLng = req.dropoffLng,
+                isActive = true
+            )
+        } else {
+            // Keep driver's original destination corridor active in Supabase
+            com.glip.driver.data.remote.SupabaseClient.syncDriverRoute(
+                driverIdentifier = driverId,
+                mobileNumber = prof?.mobileNumber,
+                destinationName = currentRoute.destinationName,
+                destLat = currentRoute.destLat,
+                destLng = currentRoute.destLng,
+                isActive = true
+            )
+        }
 
         val newTrip = DemoTrip(
             id = "trip_${System.currentTimeMillis()}",
@@ -299,13 +325,12 @@ class DemoDriverRepositoryImpl(
                 if (trip.status == DemoTripStatus.ACCEPTED &&
                     (newStatus == DemoTripStatus.COMPLETED || newStatus == DemoTripStatus.CANCELLED)
                 ) {
-                    val v = _vehicleFlow.value
-                    val newOccupied = (v.occupiedSeats - trip.requestedSeats).coerceAtLeast(0)
-                    val newAvailable = (v.totalCapacity - newOccupied).coerceAtLeast(0)
-                    _vehicleFlow.value = v.copy(
+                    val updatedV = v.copy(
                         occupiedSeats = newOccupied,
                         availableSeats = newAvailable
                     )
+                    _vehicleFlow.value = updatedV
+                    sessionManager.saveVehicle(updatedV)
                     val prof = _profileFlow.value
                     val driverId = prof?.id ?: prof?.mobileNumber
                     com.glip.driver.data.remote.SupabaseClient.updateDriverSeats(driverId, newAvailable)

@@ -768,9 +768,12 @@ fun HomeScreen(
                         .fillMaxSize()
                         .clip(RoundedCornerShape(8.dp))
                 ) {
+                    val activeOccupiedSeats = activeTrips.sumOf { it.requestedSeats }
+                    val dynamicRemainingSeats = ((vehicle?.totalCapacity ?: 4) - activeOccupiedSeats).coerceAtLeast(0)
+
                     GlipOsmMapView(
                         route = if (isAvailable && driverRoute?.isActive == true && !driverRoute?.destinationName.isNullOrBlank() && driverRoute?.destinationName != "Independent Ride") driverRoute else null,
-                        requests = if (isAvailable && (activeTrips.isEmpty() || (vehicle?.availableSeats ?: 1) > 0)) requests else emptyList(),
+                        requests = if (isAvailable && (activeTrips.isEmpty() || dynamicRemainingSeats > 0)) requests else emptyList(),
                         activeTrip = activeTrip,
                         activeTrips = activeTrips,
                         driverLiveLocation = liveLocation,
@@ -1207,7 +1210,8 @@ fun HomeScreen(
             }
 
             // 2. INCOMING RIDE REQUEST CARDS (When idle OR when driver has remaining seats to pool)
-            val remainingSeats = (vehicle?.availableSeats ?: ((vehicle?.totalCapacity ?: 1) - activeTrips.size)).coerceAtLeast(0)
+            val currentOccupied = activeTrips.sumOf { it.requestedSeats }
+            val remainingSeats = ((vehicle?.totalCapacity ?: 4) - currentOccupied).coerceAtLeast(0)
             if (isAvailable && requests.isNotEmpty() && (activeTrips.isEmpty() || remainingSeats > 0)) {
                 LazyColumn(
                     modifier = Modifier

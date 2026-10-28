@@ -242,28 +242,35 @@ class GlipDriverDispatchService : Service() {
                         }
                     }
 
-                    // 2. Fetch pending ride requests with proximity & waterfall dispatch filters
+                    // 2. Compute dynamic remaining seats considering all active pooled trips
+                    val currentTrips = repository.tripsFlow.firstOrNull() ?: emptyList()
+                    val activeTrips = currentTrips.filter { it.status == com.glip.driver.domain.model.DemoTripStatus.ACCEPTED }
+                    val activeOccupiedSeats = activeTrips.sumOf { it.requestedSeats }
+                    val totalVehicleCap = vehicle?.totalCapacity ?: 4
+                    val remainingSeats = (totalVehicleCap - activeOccupiedSeats).coerceAtLeast(0)
+
                     val activeRoute = repository.getRoute()
                     val routeDestLat = if (activeRoute.isActive) activeRoute.destLat else 0.0
                     val routeDestLng = if (activeRoute.isActive) activeRoute.destLng else 0.0
 
-                    val requests = SupabaseClient.fetchPendingRideRequests(
-                        driverUuid = profile?.id,
-                        driverMobile = profile?.mobileNumber,
-                        driverVehicleCategory = vehicle?.category,
-                        driverCapacity = vehicle?.totalCapacity,
-                        driverLat = lat,
-                        driverLng = lng,
-                        routeDestLat = routeDestLat,
-                        routeDestLng = routeDestLng,
-                        driverAvailableSeats = vehicle?.availableSeats ?: (vehicle?.totalCapacity ?: 4)
-                    )
+                    // Only fetch requests if vehicle has remaining seats
+                    val requests = if (remainingSeats > 0) {
+                        SupabaseClient.fetchPendingRideRequests(
+                            driverUuid = profile?.id,
+                            driverMobile = profile?.mobileNumber,
+                            driverVehicleCategory = vehicle?.category,
+                            driverCapacity = totalVehicleCap,
+                            driverLat = lat,
+                            driverLng = lng,
+                            routeDestLat = routeDestLat,
+                            routeDestLng = routeDestLng,
+                            driverAvailableSeats = remainingSeats
+                        )
+                    } else emptyList()
 
                     repository.setIncomingRequests(requests)
 
                     // 3. Centralized check: If passenger cancelled an active trip, auto-update status
-                    val currentTrips = repository.tripsFlow.firstOrNull() ?: emptyList()
-                    val activeTrips = currentTrips.filter { it.status == com.glip.driver.domain.model.DemoTripStatus.ACCEPTED }
                     val activeReqIds = activeTrips.map { it.requestId }.filter { it.isNotBlank() }
                     if (activeReqIds.isNotEmpty()) {
                         try {

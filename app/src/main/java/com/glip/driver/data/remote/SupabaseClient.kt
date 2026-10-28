@@ -605,18 +605,18 @@ object SupabaseClient {
                     }
 
                     // Vehicle Category Filter:
-                    // Strict separation: Auto gets Auto, E-Rickshaw gets E-Rickshaw, Cab gets Cab
+                    // Supports both Shared Pooling (1-2 seats) and Dedicated Vehicle booking up to vehicle capacity
                     if (driverVehicleCategory != null) {
-                        val isCategoryMatch = when (driverVehicleCategory) {
-                            VehicleCategory.BIKE -> false
-                            VehicleCategory.E_RICKSHAW -> seats == 4 || (isDirectMatch && seats <= 4)
-                            VehicleCategory.AUTO_RICKSHAW -> seats == 5 || (isDirectMatch && seats <= 5)
-                            VehicleCategory.CAR -> seats == 4 || (isDirectMatch && seats <= 4)
-                            VehicleCategory.VAN -> seats in 4..7
-                            VehicleCategory.MINI_BUS -> seats > 7
-                            else -> true
+                        val maxCap = when (driverVehicleCategory) {
+                            VehicleCategory.BIKE -> 1
+                            VehicleCategory.E_RICKSHAW -> 4
+                            VehicleCategory.AUTO_RICKSHAW -> 5
+                            VehicleCategory.CAR -> 4
+                            VehicleCategory.VAN -> 7
+                            VehicleCategory.MINI_BUS -> 15
+                            else -> 5
                         }
-                        if (!isCategoryMatch) {
+                        if (seats > maxCap) {
                             continue
                         }
                     }
@@ -645,13 +645,13 @@ object SupabaseClient {
                         continue
                     }
 
-                    // Strict Directional Alignment & Forward Progress (when driver has an active destination route):
-                    if (routeDestLat != 0.0 && routeDestLng != 0.0 && pLat != 0.0 && pLng != 0.0 && dLat != 0.0 && dLng != 0.0) {
+                    // Directional Alignment & Forward Progress (only for open corridor requests when driver has set a route):
+                    if (!isDirectMatch && routeDestLat != 0.0 && routeDestLng != 0.0 && pLat != 0.0 && pLng != 0.0 && dLat != 0.0 && dLng != 0.0) {
                         val passBearing = calculateBearing(pLat, pLng, dLat, dLng)
                         val driverBearing = calculateBearing(driverLat, driverLng, routeDestLat, routeDestLng)
                         val bearingDiff = angleDifference(passBearing, driverBearing)
-                        if (bearingDiff > 55.0) {
-                            continue // Passenger is heading in opposite/cross direction! Skip!
+                        if (bearingDiff > 70.0) {
+                            continue // Passenger is heading in opposite direction; skip
                         }
 
                         val dArrPick = FloatArray(1)
@@ -661,16 +661,8 @@ object SupabaseClient {
                         val dArrTrip = FloatArray(1)
                         Location.distanceBetween(pLat, pLng, dLat, dLng, dArrTrip)
 
-                        if (dArrTrip[0] > 600f && (dArrDrop[0] + 200f < dArrPick[0])) {
-                            continue // Driver is already near or past the dropoff location
-                        }
-
-                        val dArrDestPick = FloatArray(1)
-                        Location.distanceBetween(routeDestLat, routeDestLng, pLat, pLng, dArrDestPick)
-                        val dArrDestDrop = FloatArray(1)
-                        Location.distanceBetween(routeDestLat, routeDestLng, dLat, dLng, dArrDestDrop)
-                        if (dArrTrip[0] > 600f && (dArrDestPick[0] < dArrDestDrop[0])) {
-                            continue // Driver's destination terminates before or at passenger pickup
+                        if (dArrTrip[0] > 800f && (dArrDrop[0] + 400f < dArrPick[0])) {
+                            continue // Driver is already past the dropoff location
                         }
                     }
 
