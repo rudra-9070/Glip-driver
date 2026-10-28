@@ -325,6 +325,9 @@ class DemoDriverRepositoryImpl(
                 if (trip.status == DemoTripStatus.ACCEPTED &&
                     (newStatus == DemoTripStatus.COMPLETED || newStatus == DemoTripStatus.CANCELLED)
                 ) {
+                    val v = _vehicleFlow.value
+                    val newOccupied = (v.occupiedSeats - trip.requestedSeats).coerceAtLeast(0)
+                    val newAvailable = (v.totalCapacity - newOccupied).coerceAtLeast(0)
                     val updatedV = v.copy(
                         occupiedSeats = newOccupied,
                         availableSeats = newAvailable
